@@ -100,9 +100,29 @@
             }
         }
         
+        @keyframes countUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         .logo-glow {
             animation: glow-pulse 3s ease-in-out infinite;
         }
+        
+        .animate-count-up {
+            animation: countUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px -10px rgba(0, 51, 102, 0.2);
+        }
+
         
         .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
         .animate-fade-in { animation: fadeIn 0.4s ease-out; }
@@ -259,6 +279,81 @@
                             <i className="fa-solid fa-check text-sm"></i>
                         </div>
                         <span className="font-medium text-sm">{message}</span>
+                    </div>
+                </div>
+            );
+        }
+
+        function CountUpNumber({ end, duration = 2000 }) {
+            const [count, setCount] = useState(0);
+
+            useEffect(() => {
+                let startTime;
+                const animate = (currentTime) => {
+                    if (!startTime) startTime = currentTime;
+                    const progress = Math.min((currentTime - startTime) / duration, 1);
+                    setCount(Math.floor(progress * end));
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    }
+                };
+                requestAnimationFrame(animate);
+            }, [end, duration]);
+
+            return <span className="animate-count-up">{count.toLocaleString()}</span>;
+        }
+
+        function StatsSection({ projects, visitors }) {
+            const stats = [
+                {
+                    icon: 'fa-solid fa-folder-open',
+                    label: 'ผลงานทั้งหมด',
+                    value: projects.length,
+                    color: 'from-blue-500 to-indigo-600',
+                    bgColor: 'from-blue-50 to-indigo-50'
+                },
+                {
+                    icon: 'fa-solid fa-eye',
+                    label: 'ผู้เข้าชม',
+                    value: visitors,
+                    color: 'from-emerald-500 to-teal-600',
+                    bgColor: 'from-emerald-50 to-teal-50'
+                },
+                {
+                    icon: 'fa-solid fa-layer-group',
+                    label: 'หมวดหมู่',
+                    value: CATEGORIES.length - 1,
+                    color: 'from-purple-500 to-pink-600',
+                    bgColor: 'from-purple-50 to-pink-50'
+                },
+                {
+                    icon: 'fa-solid fa-calendar-check',
+                    label: 'อัพเดทล่าสุด',
+                    value: projects.length > 0 ? new Date(projects[0].timestamp).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '-',
+                    color: 'from-orange-500 to-red-600',
+                    bgColor: 'from-orange-50 to-red-50',
+                    isDate: true
+                }
+            ];
+
+            return (
+                <div className="px-4 max-w-4xl mx-auto mb-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        {stats.map((stat, index) => (
+                            <div 
+                                key={index}
+                                className="stat-card rounded-2xl p-4 md:p-5 shadow-md border border-gray-100"
+                                style={{ animationDelay: `${index * 0.1}s` }}
+                            >
+                                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.bgColor} flex items-center justify-center mb-3`}>
+                                    <i className={`${stat.icon} text-xl bg-gradient-to-br ${stat.color} bg-clip-text text-transparent`}></i>
+                                </div>
+                                <div className="text-2xl md:text-3xl font-bold gradient-text mb-1">
+                                    {stat.isDate ? stat.value : <CountUpNumber end={stat.value} />}
+                                </div>
+                                <div className="text-xs md:text-sm text-gray-500 font-medium">{stat.label}</div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             );
@@ -649,6 +744,7 @@
             const [loading, setLoading] = useState(true);
             const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
             const [searchTerm, setSearchTerm] = useState("");
+            const [visitors, setVisitors] = useState(0);
             
             const [viewProject, setViewProject] = useState(null);
             const [formModalOpen, setFormModalOpen] = useState(false);
@@ -670,6 +766,28 @@
             };
 
             useEffect(() => { fetchProjects(); }, []);
+
+            useEffect(() => {
+                // Track visitors using localStorage
+                const VISITOR_KEY = 'portfolio_visitor_count';
+                const VISITED_KEY = 'portfolio_has_visited';
+                
+                // Check if user has visited before
+                const hasVisited = localStorage.getItem(VISITED_KEY);
+                
+                if (!hasVisited) {
+                    // New visitor
+                    localStorage.setItem(VISITED_KEY, 'true');
+                    const currentCount = parseInt(localStorage.getItem(VISITOR_KEY) || '0');
+                    const newCount = currentCount + 1;
+                    localStorage.setItem(VISITOR_KEY, newCount.toString());
+                    setVisitors(newCount);
+                } else {
+                    // Returning visitor
+                    const currentCount = parseInt(localStorage.getItem(VISITOR_KEY) || '0');
+                    setVisitors(currentCount);
+                }
+            }, []);
 
             const checkAdmin = () => {
                 const pin = prompt("กรุณากรอกรหัส Admin เพื่อดำเนินการ:");
@@ -731,6 +849,7 @@
                         </div>
                         
                         <SearchBox value={searchTerm} onChange={setSearchTerm} />
+                        <StatsSection projects={projects} visitors={visitors} />
                         <FilterBar selected={selectedCategory} onSelect={setSelectedCategory} />
                         
                         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
