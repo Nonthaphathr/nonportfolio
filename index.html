@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกผลงานครูนนทพัทธ์</title>
+    <link rel="icon" href="https://nonthaphathr.github.io/uploadimg/logobunthuk.png" type="image/png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#003366', // สีน้ำเงินเข้มจากโลโก้
+                        gold: '#D4AF37',    // สีทองจากโลโก้
+                    },
+                    fontFamily: {
+                        sans: ['Kanit', 'sans-serif'], // ใช้ฟอนต์ Kanit
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@10.12.16/dist/framer-motion.js"></script>
+
+    <style>
+        body {
+            /* พื้นหลังแบบ Gradient */
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+            min-height: 100vh;
+        }
+        /* ซ่อน Scrollbar ตอนเปิด Modal */
+        .no-scroll { overflow: hidden; }
+        /* Glassmorphism effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { motion, AnimatePresence } = FramerMotion;
+
+        // --- CONFIGURATION ---
+        // URL ของ Google Apps Script ที่คุณให้มา
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzszsqb63Dem1xAGnXor_xPUnNDaqGh55vCtH5Dj1-ms6oCcCOoMC72jI7pIuhhqsBS/exec";
+        const LOGO_URL = "https://nonthaphathr.github.io/uploadimg/logobunthuk.png";
+        const CATEGORIES = ["ทั้งหมด", "Web Application", "AI & Data", "สื่อการสอน", "อื่นๆ"];
+        // ----------------------
+
+        // --- COMPONENTS ---
+
+        // 1. Header Component
+        function Header({ onAddClick }) {
+            return (
+                <motion.header 
+                    initial={{ y: -100 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 120 }}
+                    className="glass sticky top-0 z-40 px-6 py-4 shadow-sm"
+                >
+                    <div className="max-w-6xl mx-auto flex justify-between items-center">
+                        <div className="flex items-center space-x-3">
+                            <motion.img whileHover={{ rotate: 360, scale: 1.1 }} transition={{ duration: 0.8 }} src={LOGO_URL} alt="Logo" className="h-14 w-14 rounded-full shadow-md border-2 border-gold" />
+                            <div>
+                                <h1 className="text-xl md:text-2xl font-bold text-primary leading-tight">ระบบบันทึกผลงาน</h1>
+                                <p className="text-sm text-gray-600">ครูนนทพัทธ์ หิรัญเรือง</p>
+                            </div>
+                        </div>
+                        <motion.button
+                            whileHover={{ scale: 1.05, backgroundColor: '#D4AF37' }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={onAddClick}
+                            className="bg-primary text-white px-4 py-2 rounded-full font-medium shadow-md hover:shadow-lg transition flex items-center space-x-2"
+                        >
+                            <span>+ เพิ่มผลงาน</span>
+                        </motion.button>
+                    </div>
+                </motion.header>
+            );
+        }
+
+        // 2. Filter Bar Component
+        function FilterBar({ selected, onSelect }) {
+            return (
+                <div className="flex flex-wrap justify-center gap-3 my-8">
+                    {CATEGORIES.map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => onSelect(cat)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 
+                            ${selected === cat ? 'bg-primary text-white shadow-md scale-105' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+            );
+        }
+
+        // 3. Project Card Component (รายการผลงาน)
+        function ProjectCard({ project, onClick }) {
+            return (
+                <motion.div
+                    layoutId={`card-container-${project.id}`}
+                    whileHover={{ y: -5 }}
+                    onClick={() => onClick(project)}
+                    className="glass rounded-2xl overflow-hidden shadow-sm hover:shadow-xl cursor-pointer transition-shadow group"
+                >
+                    <motion.div layoutId={`image-container-${project.id}`} className="h-48 overflow-hidden relative">
+                        <img src={project.imageUrl} alt={project.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        <div className="absolute top-2 right-2 bg-white/80 backdrop-blur text-xs font-bold text-primary px-2 py-1 rounded-full">
+                            {project.category}
+                        </div>
+                    </motion.div>
+                    <motion.div layoutId={`content-container-${project.id}`} className="p-5">
+                        <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-1">{project.title}</h3>
+                        <p className="text-gray-600 text-sm line-clamp-2">{project.description}</p>
+                    </motion.div>
+                </motion.div>
+            );
+        }
+
+        // 4. Modal Component (แสดงรายละเอียดผลงาน)
+        function ProjectModal({ project, onClose }) {
+            if (!project) return null;
+            
+            // ป้องกันการคลิกทะลุไปยัง Overlay
+            const handleModalClick = (e) => e.stopPropagation();
+
+            return (
+                <AnimatePresence>
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+                    onClick={onClose} // คลิก พื้นหลังเพื่อปิด
+                >
+                    <motion.div
+                        layoutId={`card-container-${project.id}`}
+                        className="bg-white rounded-3xl overflow-hidden shadow-2xl w-full max-w-3xl my-8 relative"
+                        onClick={handleModalClick}
+                    >
+                         <button onClick={onClose} className="absolute top-4 right-4 bg-white/50 hover:bg-white text-gray-800 rounded-full p-2 z-10 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+
+                        <motion.div layoutId={`image-container-${project.id}`} className="h-72 md:h-96 overflow-hidden relative">
+                             <img src={project.imageUrl} alt={project.title} className="w-full h-full object-cover" />
+                        </motion.div>
+
+                        <motion.div layoutId={`content-container-${project.id}`} className="p-6 md:p-8">
+                            <div className="flex items-center mb-4">
+                                <span className="bg-blue-100 text-primary text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">{project.category}</span>
+                                <span className="text-gray-400 text-sm ml-3">{new Date(project.timestamp).toLocaleDateString('th-TH')}</span>
+                            </div>
+                            <h2 className="text-3xl font-bold text-gray-900 mb-4">{project.title}</h2>
+                            <p className="text-gray-700 text-lg leading-relaxed mb-6 whitespace-pre-line">{project.description}</p>
+
+                            <a href={project.link} target="_blank" rel="noopener noreferrer"
+                               className="inline-flex items-center justify-center w-full md:w-auto bg-primary hover:bg-blue-800 text-white font-bold px-6 py-3 rounded-xl transition transform hover:-translate-y-1"
+                            >
+                                <span>ไปยังระบบ/ผลงาน</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </a>
+                        </motion.div>
+                    </motion.div>
+                </motion.div>
+                </AnimatePresence>
+            );
+        }
+
+        // 5. Add Project Form Modal (ฟอร์มเพิ่มผลงาน)
+        function AddProjectModal({ isOpen, onClose, refreshData }) {
+            const [loading, setLoading] = useState(false);
+            const formRef = useRef(null);
+
+            // ฟังก์ชันแปลงไฟล์ภาพเป็น Base64
+            const toBase64 = file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                const formData = new FormData(formRef.current);
+                const file = formData.get('imageFile');
+
+                if (!file || file.size === 0) {
+                    alert("กรุณาเลือกรูปภาพ");
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    const base64Image = await toBase64(file);
+                    // Payload ที่จะส่งไป GAS
+                    const payload = {
+                        title: formData.get('title'),
+                        description: formData.get('description'),
+                        category: formData.get('category'),
+                        link: formData.get('link'),
+                        imageBase64: base64Image.split(',')[1], // เอาส่วนที่เป็นข้อมูลออก
+                        imageType: file.type
+                    };
+
+                    // ส่งข้อมูลไปยัง GAS (ใช้ no-cors เพราะเป็นการส่งข้ามโดเมนแบบง่าย)
+                    await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    // เนื่องจาก no-cors เราจะไม่รู้สถานะที่แน่ชัด แต่สมมติว่าสำเร็จ
+                    alert("บันทึกข้อมูลเรียบร้อย! (ข้อมูลอาจใช้เวลาสักครู่ในการแสดงผล)");
+                    formRef.current.reset();
+                    onClose();
+                    // รอสักครู่แล้วโหลดข้อมูลใหม่
+                    setTimeout(() => refreshData(), 2000);
+
+                } catch (error) {
+                    alert("เกิดข้อผิดพลาด: " + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                 <AnimatePresence>
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative glass"
+                    >
+                         <h2 className="text-2xl font-bold text-primary mb-4 flex items-center">
+                            <span className="mr-2">📝</span> เพิ่มผลงานใหม่
+                         </h2>
+                         
+                         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">ชื่อระบบ/ผลงาน</label>
+                                <input type="text" name="title" required className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white/50" placeholder="เช่น ระบบเช็คชื่อออนไลน์" />
+                            </div>
+                             <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">หมวดหมู่</label>
+                                <select name="category" className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none bg-white/50">
+                                    {CATEGORIES.filter(c => c !== 'ทั้งหมด').map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">คำอธิบาย</label>
+                                <textarea name="description" required rows="3" className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none bg-white/50" placeholder="รายละเอียดสั้นๆ เกี่ยวกับผลงาน"></textarea>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">ลิงก์ผลงาน (URL)</label>
+                                <input type="url" name="link" required className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none bg-white/50" placeholder="https://..." />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">รูปภาพหน้าปก/โลโก้</label>
+                                <input type="file" name="imageFile" accept="image/*" required className="w-full p-2 border border-gray-300 rounded-xl bg-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />
+                            </div>
+
+                            <div className="flex justify-end space-x-3 mt-6">
+                                <button type="button" onClick={onClose} disabled={loading} className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 transition">ยกเลิก</button>
+                                <button type="submit" disabled={loading} className={`px-6 py-2 rounded-xl text-white font-bold transition flex items-center ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary hover:bg-blue-800 shadow-md'}`}>
+                                    {loading && <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+                                    {loading ? 'กำลังบันทึก...' : 'บันทึกผลงาน'}
+                                </button>
+                            </div>
+                         </form>
+
+                    </motion.div>
+                </motion.div>
+                </AnimatePresence>
+            );
+        }
+
+
+        // --- MAIN APP COMPONENT ---
+        function App() {
+            const [projects, setProjects] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
+            const [selectedProjectId, setSelectedProjectId] = useState(null);
+            const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+            // ฟังก์ชันดึงข้อมูลจาก GAS
+            const fetchProjects = async () => {
+                setLoading(true);
+                try {
+                    const response = await fetch(GAS_API_URL);
+                    const data = await response.json();
+                    // ตรวจสอบว่า data เป็น array หรือไม่
+                    if (Array.isArray(data)) {
+                         // เรียงลำดับจากใหม่ไปเก่า (ดูจาก timestamp หรือ id ก็ได้)
+                        setProjects(data.reverse());
+                    } else {
+                        console.error("Data format error:", data);
+                        setProjects([]);
+                    }
+                } catch (error) {
+                    console.error("Error fetching projects:", error);
+                    alert("ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่อ");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // โหลดข้อมูลเมื่อเข้าเว็บครั้งแรก
+            useEffect(() => {
+                fetchProjects();
+            }, []);
+
+            // จัดการการเลื่อนหน้าจอเมื่อเปิด Modal
+            useEffect(() => {
+                if (selectedProjectId || isAddModalOpen) {
+                    document.body.classList.add('no-scroll');
+                } else {
+                    document.body.classList.remove('no-scroll');
+                }
+            }, [selectedProjectId, isAddModalOpen]);
+
+            // กรองข้อมูลตามหมวดหมู่
+            const filteredProjects = selectedCategory === "ทั้งหมด" 
+                ? projects 
+                : projects.filter(p => p.category === selectedCategory);
+            
+            // หาโปรเจกต์ที่กำลังเปิด Modal อยู่
+            const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+            return (
+                <div className="min-h-screen pb-20">
+                    <Header onAddClick={() => setIsAddModalOpen(true)} />
+
+                    <main className="max-w-6xl mx-auto px-6 mt-8">
+                        {/* Hero section เล็กๆ */}
+                        <div className="text-center mb-12">
+                            <h2 className="text-3xl md:text-4xl font-bold text-primary mb-4">แฟ้มสะสมผลงานดิจิทัล</h2>
+                            <p className="text-lg text-gray-600 max-w-2xl mx-auto">รวบรวมนวัตกรรม สื่อการสอน และระบบเทคโนโลยีทางการศึกษาที่พัฒนาขึ้นเพื่อยกระดับการเรียนรู้</p>
+                        </div>
+
+                        <FilterBar selected={selectedCategory} onSelect={setSelectedCategory} />
+
+                        {loading ? (
+                            // Loading Skeleton
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="glass rounded-2xl overflow-hidden h-80 animate-pulse">
+                                        <div className="bg-gray-300 h-48 w-full"></div>
+                                        <div className="p-5 space-y-3">
+                                            <div className="h-6 bg-gray-300 rounded w-3/4"></div>
+                                            <div className="h-4 bg-gray-300 rounded w-full"></div>
+                                            <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            // Project Grid
+                            <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                <AnimatePresence>
+                                    {filteredProjects.map(project => (
+                                        <ProjectCard key={project.id} project={project} onClick={(p) => setSelectedProjectId(p.id)} />
+                                    ))}
+                                </AnimatePresence>
+                            </motion.div>
+                        )}
+
+                        {!loading && filteredProjects.length === 0 && (
+                            <div className="text-center py-20 text-gray-500">
+                                ยังไม่มีผลงานในหมวดหมู่นี้
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Modals */}
+                    {selectedProject && (
+                        <ProjectModal project={selectedProject} onClose={() => setSelectedProjectId(null)} />
+                    )}
+                    
+                    <AddProjectModal 
+                        isOpen={isAddModalOpen} 
+                        onClose={() => setIsAddModalOpen(false)} 
+                        refreshData={fetchProjects}
+                    />
+
+                    {/* Footer */}
+                    <footer className="text-center py-8 text-gray-500 text-sm mt-12">
+                        © {new Date().getFullYear()} ครูนนทพัทธ์ หิรัญเรือง. All rights reserved. <br/>Developed with Vibe Coding style.
+                    </footer>
+                </div>
+            );
+        }
+
+        // Render App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
