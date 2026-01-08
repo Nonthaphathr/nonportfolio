@@ -622,19 +622,22 @@
                                     <p className="text-xs text-gray-500 font-medium">e-Portfolio System</p>
                                 </div>
                             </div>
-                            <button 
-                                onClick={onAddClick} 
-                                className="btn-primary ripple text-white w-12 h-12 rounded-2xl shadow-lg flex items-center justify-center active:scale-95"
-                            >
-                                <i className="fa-solid fa-plus text-base"></i>
-                            </button>
-                            <a 
-                                href="print.html"
-                                className="bg-gradient-to-r from-emerald-500 to-teal-500 ripple text-white w-12 h-12 rounded-2xl shadow-lg flex items-center justify-center active:scale-95 hover:shadow-xl transition-all"
-                                title="พิมพ์เอกสาร"
-                            >
-                                <i className="fa-solid fa-print text-base"></i>
-                            </a>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={onAddClick} 
+                                    className="btn-primary ripple text-white w-12 h-12 rounded-2xl shadow-lg flex items-center justify-center active:scale-95"
+                                    title="เพิ่มข้อมูล"
+                                >
+                                    <i className="fa-solid fa-plus text-base"></i>
+                                </button>
+                                <a 
+                                    href="print.html"
+                                    className="bg-gradient-to-r from-emerald-500 to-teal-500 ripple text-white w-12 h-12 rounded-2xl shadow-lg flex items-center justify-center active:scale-95 hover:shadow-xl transition-all"
+                                    title="พิมพ์เอกสาร"
+                                >
+                                    <i className="fa-solid fa-print text-base"></i>
+                                </a>
+                            </div>
                         </div>
                         
                         {/* Tab Navigation - 3 tabs */}
