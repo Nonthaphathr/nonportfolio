@@ -9,8 +9,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- html2pdf for PDF download -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- jsPDF + autoTable for better PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     
     <!-- Font Sarabun สำหรับเอกสาร -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,28 +54,33 @@
             background-clip: text;
         }
 
-        /* Checkbox Custom Style */
+        /* Checkbox Custom Style - สีเขียวสดใส */
         .custom-checkbox {
             appearance: none;
-            width: 1.25rem;
-            height: 1.25rem;
+            width: 1.5rem;
+            height: 1.5rem;
             border: 2px solid #d1d5db;
             border-radius: 0.375rem;
             cursor: pointer;
             transition: all 0.2s;
+            flex-shrink: 0;
         }
 
         .custom-checkbox:checked {
-            background: linear-gradient(135deg, #003366, #0066CC);
-            border-color: #003366;
+            background: #10b981;
+            border-color: #10b981;
             background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+        }
+
+        .custom-checkbox:hover {
+            border-color: #10b981;
         }
 
         /* Print Styles */
         @media print {
             @page {
                 size: A4;
-                margin: 15mm;
+                margin: 12mm;
             }
 
             * {
@@ -113,8 +119,8 @@
 
             .print-document {
                 font-family: 'Sarabun', sans-serif !important;
-                font-size: 14pt !important;
-                line-height: 1.6 !important;
+                font-size: 11pt !important;
+                line-height: 1.5 !important;
                 box-shadow: none !important;
                 border-radius: 0 !important;
                 padding: 0 !important;
@@ -137,14 +143,14 @@
             .print-document th,
             .print-document td {
                 border: 1px solid #000 !important;
-                padding: 8px !important;
+                padding: 6px 8px !important;
                 text-align: center !important;
-                font-size: 14pt !important;
+                font-size: 11pt !important;
             }
 
             .print-document td.text-left-cell {
                 text-align: left !important;
-                padding-left: 12px !important;
+                padding-left: 10px !important;
             }
 
             .print-document th {
@@ -153,8 +159,8 @@
             }
 
             .qr-code-cell img {
-                width: 60px !important;
-                height: 60px !important;
+                width: 55px !important;
+                height: 55px !important;
             }
         }
 
@@ -163,7 +169,7 @@
             font-family: 'Sarabun', sans-serif;
             background: white;
             padding: 40px;
-            line-height: 1.8;
+            line-height: 1.6;
         }
 
         .print-document table {
@@ -175,25 +181,26 @@
         .print-document th,
         .print-document td {
             border: 1px solid #333;
-            padding: 10px;
+            padding: 8px;
             text-align: center;
             vertical-align: middle;
-            font-size: 14px;
+            font-size: 11px;
         }
 
         .print-document th {
             background-color: #f5f5f5;
             font-weight: 600;
+            font-size: 12px;
         }
 
         .print-document td.text-left-cell {
             text-align: left;
-            padding-left: 12px;
+            padding-left: 10px;
         }
 
         .qr-code-cell img {
-            width: 70px;
-            height: 70px;
+            width: 60px;
+            height: 60px;
         }
 
         /* Animation */
@@ -209,6 +216,7 @@
         /* Item Card */
         .item-card {
             transition: all 0.3s ease;
+            user-select: none;
         }
 
         .item-card:hover {
@@ -217,8 +225,81 @@
         }
 
         .item-card.selected {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        }
+
+        .item-card.dragging {
+            opacity: 0.5;
+            transform: scale(1.02);
+        }
+
+        .item-card.drag-over {
             border-color: #0066CC;
-            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-style: dashed;
+        }
+
+        /* Order Badge */
+        .order-badge {
+            min-width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            background: #d1d5db;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: #10b981;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch.active::after {
+            left: 27px;
+        }
+
+        /* Move Buttons */
+        .move-btn {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .move-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .move-btn:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -254,7 +335,7 @@
                 ตั้งค่าเอกสาร
             </h2>
             
-            <div class="grid md:grid-cols-2 gap-4">
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                         <i class="fa-solid fa-heading text-accent mr-1"></i>
@@ -278,33 +359,49 @@
                         class="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-accent focus:border-accent outline-none transition-all"
                     >
                         <option value="projects">ผลงาน</option>
+                        <option value="infographics">Infographic</option>
                         <option value="videos">สื่อวีดิทัศน์</option>
                     </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fa-solid fa-image text-accent mr-1"></i>
+                        แสดงโลโก้
+                    </label>
+                    <div class="flex items-center gap-3 h-[46px]">
+                        <div 
+                            id="logoToggle" 
+                            class="toggle-switch active" 
+                            onclick="toggleLogo()"
+                        ></div>
+                        <span id="logoStatus" class="text-sm text-gray-600">เปิด</span>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Selection Section -->
         <div class="bg-white rounded-2xl shadow-lg p-6 mb-6 no-print animate-fade-in">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                 <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
                     <i class="fa-solid fa-list-check text-accent"></i>
                     เลือกรายการที่ต้องการพิมพ์
+                    <span class="text-sm font-normal text-gray-500">(ลากเพื่อจัดลำดับ)</span>
                 </h2>
                 <div class="flex gap-2">
                     <button 
                         onclick="selectAll()"
-                        class="px-4 py-2 bg-accent/10 text-accent rounded-xl text-sm font-semibold hover:bg-accent/20 transition-all"
+                        class="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-all"
                     >
                         <i class="fa-solid fa-check-double mr-1"></i>
                         เลือกทั้งหมด
                     </button>
                     <button 
                         onclick="deselectAll()"
-                        class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-all"
+                        class="px-4 py-2 bg-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-300 transition-all"
                     >
                         <i class="fa-solid fa-xmark mr-1"></i>
-                        ยกเลิกทั้งหมด
+                        ยกเลิก
                     </button>
                 </div>
             </div>
@@ -316,18 +413,18 @@
             </div>
 
             <!-- Items List -->
-            <div id="itemsList" class="grid gap-3 max-h-[400px] overflow-y-auto pr-2" style="display: none;">
+            <div id="itemsList" class="space-y-2 max-h-[450px] overflow-y-auto pr-2" style="display: none;">
                 <!-- Items will be loaded here -->
             </div>
 
             <!-- Selected Count -->
-            <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+            <div class="mt-4 pt-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <span class="text-gray-600">
-                    เลือกแล้ว: <strong id="selectedCount" class="text-accent">0</strong> รายการ
+                    เลือกแล้ว: <strong id="selectedCount" class="text-emerald-600 text-lg">0</strong> รายการ
                 </span>
                 <button 
                     onclick="generatePreview()"
-                    class="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center gap-2"
+                    class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
                 >
                     <i class="fa-solid fa-eye"></i>
                     ดูตัวอย่างเอกสาร
@@ -337,7 +434,7 @@
 
         <!-- Preview Section -->
         <div id="previewSection" class="bg-white rounded-2xl shadow-lg overflow-hidden mb-6" style="display: none;">
-            <div class="bg-gradient-to-r from-primary to-accent text-white p-4 flex justify-between items-center no-print">
+            <div class="bg-gradient-to-r from-primary to-accent text-white p-4 flex flex-col sm:flex-row justify-between items-center gap-3 no-print">
                 <h2 class="text-lg font-bold flex items-center gap-2">
                     <i class="fa-solid fa-file-lines"></i>
                     ตัวอย่างเอกสาร
@@ -348,14 +445,14 @@
                         class="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all flex items-center gap-2"
                     >
                         <i class="fa-solid fa-file-pdf"></i>
-                        <span class="hidden sm:inline">ดาวน์โหลด PDF</span>
+                        <span>PDF</span>
                     </button>
                     <button 
                         onclick="printDocument()"
                         class="px-5 py-2 bg-white text-primary rounded-xl font-semibold hover:bg-gray-100 transition-all flex items-center gap-2"
                     >
                         <i class="fa-solid fa-print"></i>
-                        <span class="hidden sm:inline">พิมพ์เอกสาร</span>
+                        <span>พิมพ์</span>
                     </button>
                 </div>
             </div>
@@ -374,10 +471,14 @@
         // Configuration
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzszsqb63Dem1xAGnXor_xPUnNDaqGh55vCtH5Dj1-ms6oCcCOoMC72jI7pIuhhqsBS/exec";
         const LOGO_URL = "https://nonthaphathr.github.io/uploadimg/logobunthuk.png";
+        const INFOGRAPHIC_FOLDER_ID = "1PqKi9ScERr0fGvgFk4Njq7h02uht2K7T";
 
         let allProjects = [];
         let allVideos = [];
-        let selectedItems = new Set();
+        let allInfographics = [];
+        let selectedItems = []; // Changed to array for ordering
+        let showLogo = true;
+        let draggedItem = null;
 
         // Thai months
         const thaiMonths = [
@@ -394,12 +495,28 @@
             return `${day} ${month} พ.ศ. ${year}`;
         }
 
+        // Toggle logo
+        function toggleLogo() {
+            showLogo = !showLogo;
+            const toggle = document.getElementById('logoToggle');
+            const status = document.getElementById('logoStatus');
+            
+            if (showLogo) {
+                toggle.classList.add('active');
+                status.textContent = 'เปิด';
+            } else {
+                toggle.classList.remove('active');
+                status.textContent = 'ปิด';
+            }
+        }
+
         // Load data on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
-            
-            // Listen for data type change
-            document.getElementById('dataType').addEventListener('change', renderItems);
+            document.getElementById('dataType').addEventListener('change', () => {
+                selectedItems = [];
+                renderItems();
+            });
         });
 
         // Load all data
@@ -419,26 +536,42 @@
                     allVideos = videosData;
                 }
 
+                // Load infographics
+                const infographicsRes = await fetch(`${GAS_API_URL}?action=getInfographics&folderId=${INFOGRAPHIC_FOLDER_ID}`);
+                const infographicsData = await infographicsRes.json();
+                if (Array.isArray(infographicsData)) {
+                    allInfographics = infographicsData;
+                }
+
                 renderItems();
             } catch (error) {
                 console.error('Error loading data:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: 'ไม่สามารถโหลดข้อมูลได้',
-                    confirmButtonColor: '#003366'
-                });
+                document.getElementById('loadingItems').innerHTML = `
+                    <div class="text-center py-10">
+                        <i class="fa-solid fa-exclamation-circle text-4xl text-red-400 mb-4"></i>
+                        <p class="text-gray-500">ไม่สามารถโหลดข้อมูลได้</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Get current items based on type
+        function getCurrentItems() {
+            const dataType = document.getElementById('dataType').value;
+            switch(dataType) {
+                case 'projects': return allProjects;
+                case 'videos': return allVideos;
+                case 'infographics': return allInfographics;
+                default: return [];
             }
         }
 
         // Render items based on selected type
         function renderItems() {
-            const dataType = document.getElementById('dataType').value;
-            const items = dataType === 'projects' ? allProjects : allVideos;
+            const items = getCurrentItems();
             const container = document.getElementById('itemsList');
             const loading = document.getElementById('loadingItems');
 
-            selectedItems.clear();
             updateSelectedCount();
 
             if (items.length === 0) {
@@ -448,102 +581,182 @@
                         <p class="text-gray-500">ไม่พบข้อมูล</p>
                     </div>
                 `;
+                loading.style.display = 'block';
+                container.style.display = 'none';
                 return;
             }
 
             loading.style.display = 'none';
-            container.style.display = 'grid';
+            container.style.display = 'block';
 
-            container.innerHTML = items.map((item, index) => `
-                <div class="item-card flex items-center gap-4 p-4 border-2 border-gray-200 rounded-xl cursor-pointer transition-all ${selectedItems.has(item.id) ? 'selected' : ''}"
-                     onclick="toggleItem('${item.id}')" id="item-${item.id}">
+            container.innerHTML = items.map((item, index) => {
+                const isSelected = selectedItems.some(s => s.id === item.id);
+                const orderIndex = selectedItems.findIndex(s => s.id === item.id);
+                
+                return `
+                <div class="item-card flex items-center gap-3 p-3 border-2 border-gray-200 rounded-xl cursor-pointer transition-all ${isSelected ? 'selected' : ''}"
+                     id="item-${item.id}"
+                     draggable="true"
+                     ondragstart="handleDragStart(event, '${item.id}')"
+                     ondragend="handleDragEnd(event)"
+                     ondragover="handleDragOver(event)"
+                     ondrop="handleDrop(event, '${item.id}')">
+                    
+                    <!-- Checkbox -->
                     <input 
                         type="checkbox" 
-                        class="custom-checkbox flex-shrink-0"
-                        ${selectedItems.has(item.id) ? 'checked' : ''}
+                        class="custom-checkbox"
+                        ${isSelected ? 'checked' : ''}
                         onclick="event.stopPropagation(); toggleItem('${item.id}')"
                     />
-                    <div class="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                    
+                    <!-- Order Badge -->
+                    <div class="order-badge ${isSelected ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}">
+                        ${isSelected ? orderIndex + 1 : '-'}
+                    </div>
+                    
+                    <!-- Move Buttons -->
+                    <div class="flex flex-col gap-1 ${isSelected ? '' : 'opacity-30 pointer-events-none'}">
+                        <button class="move-btn text-gray-400 hover:text-primary" onclick="event.stopPropagation(); moveItem('${item.id}', -1)" title="เลื่อนขึ้น">
+                            <i class="fa-solid fa-chevron-up text-xs"></i>
+                        </button>
+                        <button class="move-btn text-gray-400 hover:text-primary" onclick="event.stopPropagation(); moveItem('${item.id}', 1)" title="เลื่อนลง">
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Image -->
+                    <div class="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
                         <img 
-                            src="${item.imageUrl || item.thumbnail || 'https://via.placeholder.com/64'}" 
+                            src="${item.imageUrl || item.thumbnail || 'https://via.placeholder.com/56'}" 
                             alt="${item.title}"
                             class="w-full h-full object-cover"
-                            onerror="this.src='https://via.placeholder.com/64/003366/ffffff?text=${index + 1}'"
+                            onerror="this.src='https://via.placeholder.com/56/003366/ffffff?text=${index + 1}'"
                         />
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold text-gray-800 truncate">${item.title}</h3>
-                        <p class="text-sm text-gray-500 truncate">${item.description || ''}</p>
+                    
+                    <!-- Info -->
+                    <div class="flex-1 min-w-0" onclick="toggleItem('${item.id}')">
+                        <h3 class="font-semibold text-gray-800 truncate text-sm">${item.title}</h3>
+                        <p class="text-xs text-gray-500 truncate">${item.description || ''}</p>
                         <span class="inline-block mt-1 px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-full">
-                            ${item.category || 'ไม่ระบุหมวดหมู่'}
+                            ${item.category || 'ไม่ระบุ'}
                         </span>
                     </div>
+                    
+                    <!-- Drag Handle -->
+                    <div class="text-gray-300 px-2 cursor-grab active:cursor-grabbing">
+                        <i class="fa-solid fa-grip-vertical"></i>
+                    </div>
                 </div>
-            `).join('');
+            `}).join('');
+        }
+
+        // Drag and Drop handlers
+        function handleDragStart(e, id) {
+            draggedItem = id;
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.item-card').forEach(card => {
+                card.classList.remove('drag-over');
+            });
+            draggedItem = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            const card = e.target.closest('.item-card');
+            if (card && !card.classList.contains('dragging')) {
+                card.classList.add('drag-over');
+            }
+        }
+
+        function handleDrop(e, targetId) {
+            e.preventDefault();
+            const card = e.target.closest('.item-card');
+            if (card) card.classList.remove('drag-over');
+            
+            if (!draggedItem || draggedItem === targetId) return;
+            
+            // Check if both items are selected
+            const draggedIndex = selectedItems.findIndex(s => s.id === draggedItem);
+            const targetIndex = selectedItems.findIndex(s => s.id === targetId);
+            
+            if (draggedIndex === -1) {
+                // If dragged item is not selected, select it first
+                const items = getCurrentItems();
+                const item = items.find(i => i.id === draggedItem);
+                if (item) {
+                    if (targetIndex === -1) {
+                        selectedItems.push(item);
+                    } else {
+                        selectedItems.splice(targetIndex, 0, item);
+                    }
+                }
+            } else if (targetIndex !== -1) {
+                // Reorder within selected items
+                const [removed] = selectedItems.splice(draggedIndex, 1);
+                selectedItems.splice(targetIndex, 0, removed);
+            }
+            
+            renderItems();
+        }
+
+        // Move item up or down
+        function moveItem(id, direction) {
+            const index = selectedItems.findIndex(s => s.id === id);
+            if (index === -1) return;
+            
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= selectedItems.length) return;
+            
+            const [removed] = selectedItems.splice(index, 1);
+            selectedItems.splice(newIndex, 0, removed);
+            
+            renderItems();
         }
 
         // Toggle item selection
         function toggleItem(id) {
-            if (selectedItems.has(id)) {
-                selectedItems.delete(id);
+            const items = getCurrentItems();
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            const index = selectedItems.findIndex(s => s.id === id);
+            
+            if (index > -1) {
+                selectedItems.splice(index, 1);
             } else {
-                selectedItems.add(id);
+                selectedItems.push(item);
             }
             
-            // Update UI
-            const card = document.getElementById(`item-${id}`);
-            const checkbox = card.querySelector('input[type="checkbox"]');
-            
-            if (selectedItems.has(id)) {
-                card.classList.add('selected');
-                checkbox.checked = true;
-            } else {
-                card.classList.remove('selected');
-                checkbox.checked = false;
-            }
-            
-            updateSelectedCount();
+            renderItems();
         }
 
         // Select all
         function selectAll() {
-            const dataType = document.getElementById('dataType').value;
-            const items = dataType === 'projects' ? allProjects : allVideos;
-            
-            items.forEach(item => {
-                selectedItems.add(item.id);
-                const card = document.getElementById(`item-${item.id}`);
-                if (card) {
-                    card.classList.add('selected');
-                    card.querySelector('input[type="checkbox"]').checked = true;
-                }
-            });
-            
-            updateSelectedCount();
+            const items = getCurrentItems();
+            selectedItems = [...items];
+            renderItems();
         }
 
         // Deselect all
         function deselectAll() {
-            selectedItems.forEach(id => {
-                const card = document.getElementById(`item-${id}`);
-                if (card) {
-                    card.classList.remove('selected');
-                    card.querySelector('input[type="checkbox"]').checked = false;
-                }
-            });
-            
-            selectedItems.clear();
-            updateSelectedCount();
+            selectedItems = [];
+            renderItems();
         }
 
         // Update selected count
         function updateSelectedCount() {
-            document.getElementById('selectedCount').textContent = selectedItems.size;
+            document.getElementById('selectedCount').textContent = selectedItems.length;
         }
 
         // Generate preview
         function generatePreview() {
-            if (selectedItems.size === 0) {
+            if (selectedItems.length === 0) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'กรุณาเลือกรายการ',
@@ -554,55 +767,86 @@
             }
 
             const dataType = document.getElementById('dataType').value;
-            const items = dataType === 'projects' ? allProjects : allVideos;
             const documentTitle = document.getElementById('documentTitle').value || 'สรุปผลงานครูนนทพัทธ์ หิรัญเรือง';
             const today = formatThaiDate(new Date());
+            const isInfographic = dataType === 'infographics';
 
-            // Filter selected items
-            const selectedData = items.filter(item => selectedItems.has(item.id));
+            // Generate table rows based on type
+            let tableRows;
+            let tableHeader;
+            
+            if (isInfographic) {
+                // Infographic: 3 columns
+                tableHeader = `
+                    <tr>
+                        <th style="width: 50px;">ที่</th>
+                        <th>รายการ</th>
+                        <th style="width: 90px;">QR Code</th>
+                    </tr>
+                `;
+                tableRows = selectedItems.map((item, index) => {
+                    const link = item.imageUrl || '';
+                    return `
+                    <tr>
+                        <td style="width: 50px;">${index + 1}</td>
+                        <td class="text-left-cell">${item.title}</td>
+                        <td class="qr-code-cell" style="width: 90px;">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(link)}" alt="QR" />
+                        </td>
+                    </tr>
+                `}).join('');
+            } else {
+                // Projects/Videos: 4 columns
+                tableHeader = `
+                    <tr>
+                        <th style="width: 50px;">ที่</th>
+                        <th>รายการ</th>
+                        <th style="width: 200px;">รายละเอียด</th>
+                        <th style="width: 80px;">QR Code</th>
+                    </tr>
+                `;
+                tableRows = selectedItems.map((item, index) => `
+                    <tr>
+                        <td style="width: 50px;">${index + 1}</td>
+                        <td class="text-left-cell">${item.title}</td>
+                        <td class="text-left-cell">${item.description || '-'}</td>
+                        <td class="qr-code-cell" style="width: 80px;">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(item.link)}" alt="QR" />
+                        </td>
+                    </tr>
+                `).join('');
+            }
 
-            // Generate table rows
-            const tableRows = selectedData.map((item, index) => `
-                <tr>
-                    <td style="width: 50px;">${index + 1}</td>
-                    <td class="text-left-cell">${item.title}</td>
-                    <td class="text-left-cell">${item.description || '-'}</td>
-                    <td class="qr-code-cell" style="width: 90px;">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.link)}" alt="QR Code" />
-                    </td>
-                </tr>
-            `).join('');
+            // Logo HTML
+            const logoHTML = showLogo ? `
+                <img src="${LOGO_URL}" alt="Logo" style="width: 70px; height: 70px; margin: 0 auto 12px; border-radius: 12px;" />
+            ` : '';
 
             // Generate document HTML
             const documentHTML = `
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <img src="${LOGO_URL}" alt="Logo" style="width: 80px; height: 80px; margin: 0 auto 15px; border-radius: 15px;" />
-                    <h1 style="font-size: 20px; font-weight: 700; color: #003366; margin: 0 0 10px 0;">
+                <div style="text-align: center; margin-bottom: 25px;">
+                    ${logoHTML}
+                    <h1 style="font-size: 18px; font-weight: 700; color: #003366; margin: 0 0 8px 0;">
                         ${documentTitle}
                     </h1>
-                    <p style="font-size: 14px; color: #666; margin: 0;">
+                    <p style="font-size: 13px; color: #666; margin: 0;">
                         ข้อมูล ณ วันที่ ${today}
                     </p>
                 </div>
 
                 <table>
                     <thead>
-                        <tr>
-                            <th style="width: 50px;">ที่</th>
-                            <th>รายการ</th>
-                            <th style="width: 220px;">รายละเอียด</th>
-                            <th style="width: 90px;">QR Code</th>
-                        </tr>
+                        ${tableHeader}
                     </thead>
                     <tbody>
                         ${tableRows}
                     </tbody>
                 </table>
 
-                <div style="margin-top: 50px; text-align: center;">
-                    <p style="margin: 0 0 5px 0;">ลงชื่อ......................................................</p>
+                <div style="margin-top: 40px; text-align: center;">
+                    <p style="margin: 0 0 3px 0;">ลงชื่อ......................................................</p>
                     <p style="margin: 0; font-weight: 500;">(นายนนทพัทธ์  หิรัญเรือง)</p>
-                    <p style="margin: 5px 0 0 0; font-size: 14px; color: #666;">ครูผู้จัดทำ</p>
+                    <p style="margin: 3px 0 0 0; font-size: 13px; color: #666;">ครูผู้จัดทำ</p>
                 </div>
             `;
 
@@ -611,7 +855,9 @@
             document.querySelector('#printArea .print-document').innerHTML = documentHTML;
 
             // Scroll to preview
-            document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
+            setTimeout(() => {
+                document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
+            }, 100);
         }
 
         // Print document
@@ -619,57 +865,80 @@
             window.print();
         }
 
-        // Download PDF
-        function downloadPDF() {
-            const element = document.querySelector('#printArea .print-document');
+        // Download PDF using canvas approach
+        async function downloadPDF() {
             const documentTitle = document.getElementById('documentTitle').value || 'สรุปผลงานครูนนทพัทธ์';
             const today = new Date();
             const fileName = `${documentTitle}_${today.getDate()}-${today.getMonth()+1}-${today.getFullYear()+543}.pdf`;
 
-            // Show loading
             Swal.fire({
                 title: 'กำลังสร้าง PDF...',
+                html: 'กรุณารอสักครู่',
                 allowOutsideClick: false,
                 didOpen: () => {
                     Swal.showLoading();
                 }
             });
 
-            const opt = {
-                margin: [10, 10, 10, 10],
-                filename: fileName,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { 
+            try {
+                // Use html2canvas + jsPDF for better Thai font support
+                const element = document.querySelector('#printArea .print-document');
+                
+                // Dynamic import html2canvas
+                const html2canvasScript = document.createElement('script');
+                html2canvasScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                document.head.appendChild(html2canvasScript);
+                
+                await new Promise(resolve => {
+                    html2canvasScript.onload = resolve;
+                });
+
+                const canvas = await html2canvas(element, {
                     scale: 2,
                     useCORS: true,
                     allowTaint: true,
-                    logging: false
-                },
-                jsPDF: { 
-                    unit: 'mm', 
-                    format: 'a4', 
-                    orientation: 'portrait' 
-                }
-            };
+                    backgroundColor: '#ffffff'
+                });
 
-            html2pdf().set(opt).from(element).save().then(() => {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                const imgWidth = 190;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                const pageHeight = 277;
+                
+                let heightLeft = imgHeight;
+                let position = 10;
+
+                pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 10, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft > 0) {
+                    position = heightLeft - imgHeight + 10;
+                    pdf.addPage();
+                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 10, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                pdf.save(fileName);
+
                 Swal.fire({
                     icon: 'success',
                     title: 'ดาวน์โหลดสำเร็จ!',
-                    text: `บันทึกไฟล์ ${fileName}`,
                     confirmButtonColor: '#003366',
-                    timer: 2000,
-                    timerProgressBar: true
+                    timer: 1500,
+                    showConfirmButton: false
                 });
-            }).catch((error) => {
+
+            } catch (error) {
+                console.error('PDF Error:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'เกิดข้อผิดพลาด',
-                    text: 'ไม่สามารถสร้าง PDF ได้',
+                    text: 'ไม่สามารถสร้าง PDF ได้ กรุณาใช้การพิมพ์แทน',
                     confirmButtonColor: '#003366'
                 });
-                console.error('PDF Error:', error);
-            });
+            }
         }
     </script>
 
