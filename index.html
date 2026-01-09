@@ -8,7 +8,6 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
@@ -60,7 +59,6 @@
             background-clip: text;
         }
         
-        /* Animations */
         @keyframes slideUp { 
             from { transform: translateY(30px); opacity: 0; } 
             to { transform: translateY(0); opacity: 1; } 
@@ -86,11 +84,6 @@
             50% { transform: translateY(-10px); }
         }
         
-        @keyframes pulse-subtle {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
-        }
-        
         @keyframes glow-pulse {
             0%, 100% { 
                 box-shadow: 0 0 20px rgba(0, 102, 204, 0.4),
@@ -107,13 +100,8 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        .logo-glow {
-            animation: glow-pulse 3s ease-in-out infinite;
-        }
-        
-        .animate-count-up {
-            animation: countUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        }
+        .logo-glow { animation: glow-pulse 3s ease-in-out infinite; }
+        .animate-count-up { animation: countUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
         
         .stat-card {
             background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
@@ -124,7 +112,6 @@
             transform: translateY(-4px);
             box-shadow: 0 12px 40px -10px rgba(0, 51, 102, 0.2);
         }
-
         
         .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
         .animate-fade-in { animation: fadeIn 0.4s ease-out; }
@@ -137,7 +124,6 @@
             animation: shimmer 2s infinite;
         }
         
-        /* Card Hover Effect */
         .card-hover {
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -151,7 +137,6 @@
             transform: translateY(-4px) scale(1.01);
         }
         
-        /* Image Zoom Effect */
         .image-zoom {
             transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -160,7 +145,6 @@
             transform: scale(1.1);
         }
         
-        /* Button Effects */
         .btn-primary {
             background: linear-gradient(135deg, #003366 0%, #0066CC 100%);
             transition: all 0.3s ease;
@@ -192,7 +176,6 @@
             transform: translateY(0);
         }
         
-        /* Category Pills */
         .category-pill {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -201,7 +184,6 @@
             transform: translateY(-2px);
         }
         
-        /* Modal Backdrop */
         .modal-backdrop {
             animation: fadeIn 0.3s ease-out;
         }
@@ -210,7 +192,6 @@
             animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
-        /* Search Box Enhancement */
         .search-box {
             transition: all 0.3s ease;
         }
@@ -220,7 +201,6 @@
             box-shadow: 0 8px 25px -5px rgba(0, 102, 204, 0.2);
         }
         
-        /* Ripple Effect */
         .ripple {
             position: relative;
             overflow: hidden;
@@ -244,7 +224,6 @@
             height: 300px;
         }
         
-        /* Masonry Grid for Infographic */
         .masonry-grid {
             column-count: 1;
             column-gap: 1.5rem;
@@ -262,18 +241,15 @@
             width: 100%;
         }
         
-        /* iOS Safe Area */
         @supports (padding: max(0px)) {
             .safe-top { padding-top: max(1rem, env(safe-area-inset-top)); }
             .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
         }
         
-        /* Smooth Scroll */
         html {
             scroll-behavior: smooth;
         }
 
-        /* Long press hint for iOS */
         .long-press-hint {
             position: absolute;
             bottom: 0;
@@ -286,6 +262,7 @@
             text-align: center;
             opacity: 0;
             transition: opacity 0.3s;
+            pointer-events: none;
         }
         
         .infographic-image-wrapper:hover .long-press-hint,
@@ -293,7 +270,6 @@
             opacity: 1;
         }
 
-        /* Video Play Button Overlay */
         .video-play-overlay {
             position: absolute;
             inset: 0;
@@ -309,7 +285,6 @@
             opacity: 1;
         }
 
-        /* Tab styles */
         .tab-button {
             transition: all 0.3s ease;
         }
@@ -320,7 +295,6 @@
             transform: scale(1.02);
         }
 
-        /* SweetAlert Custom Styles */
         .swal2-popup {
             font-family: 'Kanit', sans-serif !important;
             border-radius: 1.5rem !important;
@@ -343,6 +317,21 @@
             font-family: 'Kanit', sans-serif !important;
             border-radius: 0.75rem !important;
         }
+
+        /* แก้ไขสำหรับ iOS - ให้กดค้างบันทึกรูปได้ */
+        .infographic-image-wrapper img {
+            -webkit-user-select: none;
+            -webkit-touch-callout: default;
+            pointer-events: auto;
+        }
+        
+        .modal-image-container img {
+            -webkit-user-select: none;
+            -webkit-touch-callout: default;
+            pointer-events: auto;
+            max-width: 100%;
+            height: auto;
+        }
     </style>
 </head>
 <body class="font-sans text-gray-800 antialiased">
@@ -351,7 +340,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- ตั้งค่า URL ของคุณที่นี่ ---
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzszsqb63Dem1xAGnXor_xPUnNDaqGh55vCtH5Dj1-ms6oCcCOoMC72jI7pIuhhqsBS/exec";
         const LOGO_URL = "https://nonthaphathr.github.io/uploadimg/logobunthuk.png";
         const ADMIN_PIN = "1234";
@@ -359,7 +347,6 @@
         const VIDEO_CATEGORIES = ["สื่อการสอน", "สื่อประชาสัมพันธ์", "อื่นๆ"];
         const INFOGRAPHIC_FOLDER_ID = "1PqKi9ScERr0fGvgFk4Njq7h02uht2K7T";
 
-        // SweetAlert Helper Functions
         const Toast = Swal.mixin({
             toast: true,
             position: 'bottom',
@@ -436,14 +423,12 @@
             Swal.close();
         };
 
-        // Helper function to extract YouTube video ID
         const getYouTubeVideoId = (url) => {
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
             const match = url.match(regExp);
             return (match && match[2].length === 11) ? match[2] : null;
         };
 
-        // Helper function to get YouTube thumbnail
         const getYouTubeThumbnail = (url) => {
             const videoId = getYouTubeVideoId(url);
             if (videoId) {
@@ -452,7 +437,6 @@
             return null;
         };
 
-        // Helper function to extract Google Drive video ID
         const getGoogleDriveVideoId = (url) => {
             const patterns = [
                 /\/d\/([a-zA-Z0-9_-]+)/,
@@ -466,7 +450,6 @@
             return null;
         };
 
-        // Helper function to get Google Drive thumbnail
         const getGoogleDriveThumbnail = (url) => {
             const fileId = getGoogleDriveVideoId(url);
             if (fileId) {
@@ -475,7 +458,6 @@
             return null;
         };
 
-        // Get video thumbnail from any URL
         const getVideoThumbnail = (url) => {
             if (url.includes('youtube.com') || url.includes('youtu.be')) {
                 return getYouTubeThumbnail(url);
@@ -485,7 +467,6 @@
             return 'https://via.placeholder.com/640x360/003366/ffffff?text=Video';
         };
 
-        // Get embed URL for video
         const getEmbedUrl = (url) => {
             const youtubeId = getYouTubeVideoId(url);
             if (youtubeId) {
@@ -496,6 +477,51 @@
                 return `https://drive.google.com/file/d/${driveId}/preview`;
             }
             return url;
+        };
+
+        // ⭐ ฟังก์ชันสำคัญ - แก้ปัญหาการแสดงภาพบน iPhone
+        const getDirectImageUrl = (url) => {
+            if (!url) return '';
+            
+            let fileId = null;
+            
+            // ลองหา file ID จากหลายรูปแบบ
+            let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match) fileId = match[1];
+            
+            if (!fileId) {
+                match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                if (match) fileId = match[1];
+            }
+            
+            if (!fileId) {
+                match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                if (match) fileId = match[1];
+            }
+            
+            // ถ้าหา file ID เจอ ใช้ lh3.googleusercontent.com ที่ iOS รองรับดี
+            if (fileId) {
+                return `https://lh3.googleusercontent.com/d/${fileId}=s2000`;
+            }
+            
+            return url;
+        };
+
+        // ฟังก์ชัน fallback สำหรับกรณีที่โหลดภาพไม่ได้
+        const getImageUrlWithFallback = (url) => {
+            const fileId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1] || 
+                          url.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1] ||
+                          url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+            
+            if (fileId) {
+                return [
+                    `https://lh3.googleusercontent.com/d/${fileId}=s2000`,
+                    `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`,
+                    `https://drive.google.com/uc?export=view&id=${fileId}`,
+                    url
+                ];
+            }
+            return [url];
         };
 
         function CountUpNumber({ end, duration = 2000 }) {
@@ -640,7 +666,6 @@
                             </div>
                         </div>
                         
-                        {/* Tab Navigation - 3 tabs */}
                         <div className="flex gap-2">
                             <button 
                                 onClick={() => onTabChange('projects')}
@@ -800,14 +825,29 @@
             );
         }
 
+        // ⭐ Component สำคัญ - แก้ไขการแสดงภาพ Infographic
         function InfographicCard({ infographic, onView, onDownload, onEdit, onDelete }) {
-            // สร้าง URL สำหรับเปิดรูปภาพโดยตรง (ให้ iPhone กดค้างบันทึกได้)
-            const getDirectImageUrl = (url) => {
-                const match = url.match(/[?&]id=([^&]+)/);
-                if (match && match[1]) {
-                    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+            const [imgSrc, setImgSrc] = useState('');
+            const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+            
+            useEffect(() => {
+                const urls = getImageUrlWithFallback(infographic.imageUrl);
+                console.log('Loading infographic image:', urls[0]);
+                setImgSrc(urls[0]);
+            }, [infographic.imageUrl]);
+
+            const handleImageError = () => {
+                const urls = getImageUrlWithFallback(infographic.imageUrl);
+                const nextIndex = currentUrlIndex + 1;
+                
+                if (nextIndex < urls.length) {
+                    console.log(`Trying fallback URL ${nextIndex + 1}/${urls.length}:`, urls[nextIndex]);
+                    setImgSrc(urls[nextIndex]);
+                    setCurrentUrlIndex(nextIndex);
+                } else {
+                    console.error('All image URLs failed for:', infographic.imageUrl);
+                    setImgSrc('https://via.placeholder.com/400x600/e8f0f8/003366?text=รูปภาพไม่สามารถโหลดได้');
                 }
-                return url;
             };
 
             return (
@@ -828,29 +868,24 @@
                             </button>
                         </div>
 
-                        {/* ใช้ <a> tag เพื่อให้ iPhone กดค้างบันทึกรูปได้ */}
-                        <a 
-                            href={getDirectImageUrl(infographic.imageUrl)} 
-                            target="_blank"
-                            className="relative cursor-pointer overflow-hidden block infographic-image-wrapper"
-                            onClick={(e) => { e.preventDefault(); onView(infographic); }}
+                        <div 
+                            className="relative cursor-pointer overflow-hidden infographic-image-wrapper"
+                            onClick={() => onView(infographic)}
                         >
                             <img 
-                                src={infographic.imageUrl} 
+                                src={imgSrc} 
                                 alt={infographic.title} 
                                 className="w-full h-auto object-cover image-zoom" 
                                 loading="lazy"
-                                onError={(e) => {
-                                    console.error('Image load error:', infographic.imageUrl);
-                                    e.target.src = 'https://via.placeholder.com/400x600/e8f0f8/003366?text=รูปภาพไม่สามารถโหลดได้';
-                                }}
+                                crossOrigin="anonymous"
+                                onError={handleImageError}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             <div className="long-press-hint">
                                 <i className="fa-solid fa-hand-pointer mr-1"></i>
-                                กดค้างที่รูปเพื่อบันทึก
+                                คลิกเพื่อดูภาพเต็ม
                             </div>
-                        </a>
+                        </div>
 
                         <div className="p-5">
                             <h3 className="font-bold text-gray-800 text-base leading-tight mb-3 line-clamp-2">
@@ -865,14 +900,13 @@
                                 }) : 'ไม่ระบุวันที่'}</span>
                             </div>
                             <div className="flex gap-2">
-                                <a 
-                                    href={getDirectImageUrl(infographic.imageUrl)}
-                                    target="_blank"
+                                <button
+                                    onClick={() => onView(infographic)}
                                     className="flex-1 btn-primary ripple text-white py-3 rounded-xl font-semibold text-sm hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
                                 >
                                     <i className="fa-solid fa-expand"></i>
                                     ดูภาพเต็ม
-                                </a>
+                                </button>
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onDownload(infographic); }}
                                     className="w-12 h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center active:scale-95 transition-all shadow-md"
@@ -968,7 +1002,6 @@
             const isYoutube = video.link.includes('youtube.com') || video.link.includes('youtu.be');
             const isDrive = video.link.includes('drive.google.com');
 
-            // สร้าง URL สำหรับเปิดวิดีโอ
             const getWatchUrl = () => {
                 if (isYoutube) {
                     const videoId = getYouTubeVideoId(video.link);
@@ -997,7 +1030,6 @@
                     
                     <div className="flex-1 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
                         <div className="w-full max-w-3xl">
-                            {/* Thumbnail พร้อมปุ่มเล่น */}
                             <div className="relative rounded-2xl overflow-hidden shadow-2xl group cursor-pointer"
                                  onClick={() => window.open(getWatchUrl(), '_blank')}>
                                 <img 
@@ -1006,13 +1038,11 @@
                                     className="w-full aspect-video object-cover"
                                     onError={(e) => e.target.src = 'https://via.placeholder.com/1280x720/1a1a2e/ffffff?text=Video'}
                                 />
-                                {/* Overlay */}
                                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-all flex items-center justify-center">
                                     <div className="w-20 h-20 md:w-24 md:h-24 bg-white/90 group-hover:bg-white group-hover:scale-110 rounded-full flex items-center justify-center shadow-2xl transition-all">
                                         <i className={`text-3xl md:text-4xl ml-1 ${isYoutube ? 'fa-brands fa-youtube text-red-600' : 'fa-solid fa-play text-primary'}`}></i>
                                     </div>
                                 </div>
-                                {/* Badge แหล่งที่มา */}
                                 <div className="absolute top-4 left-4 flex items-center gap-2">
                                     <span className={`px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-lg ${isYoutube ? 'bg-red-600' : 'bg-blue-600'}`}>
                                         {isYoutube ? (
@@ -1022,7 +1052,6 @@
                                         )}
                                     </span>
                                 </div>
-                                {/* หมวดหมู่ */}
                                 <div className="absolute top-4 right-4">
                                     <span className="px-4 py-2 rounded-xl bg-black/70 text-white text-sm font-medium shadow-lg">
                                         {video.category}
@@ -1030,7 +1059,6 @@
                                 </div>
                             </div>
                             
-                            {/* ข้อความแนะนำ */}
                             <p className="text-white/60 text-center text-sm mt-4">
                                 <i className="fa-solid fa-hand-pointer mr-2"></i>
                                 คลิกที่วิดีโอเพื่อเปิดดูใน {isYoutube ? 'YouTube' : 'Google Drive'}
@@ -1040,7 +1068,6 @@
                     
                     <div className="p-4 safe-bottom">
                         <div className="max-w-3xl mx-auto">
-                            {/* คำอธิบาย */}
                             <div className="bg-white/10 rounded-2xl p-4 mb-4 backdrop-blur">
                                 <h4 className="text-white font-semibold mb-2 flex items-center gap-2">
                                     <i className="fa-solid fa-info-circle text-accent"></i>
@@ -1059,7 +1086,6 @@
                                 )}
                             </div>
                             
-                            {/* ปุ่ม */}
                             <div className="flex gap-3">
                                 <a 
                                     href={getWatchUrl()}
@@ -1092,15 +1118,51 @@
             );
         }
 
+        // ⭐ Component สำคัญ - แก้ไขการแสดงภาพใน Modal
         function InfographicViewer({ infographic, onClose, onDownload }) {
             if (!infographic) return null;
-
-            const getDirectImageUrl = (url) => {
-                const match = url.match(/[?&]id=([^&]+)/);
-                if (match && match[1]) {
-                    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+            
+            const [imgSrc, setImgSrc] = useState('');
+            const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+            const [imageLoaded, setImageLoaded] = useState(false);
+            
+            useEffect(() => {
+                if (infographic) {
+                    const urls = getImageUrlWithFallback(infographic.imageUrl);
+                    console.log('Loading image in viewer:', urls[0]);
+                    setImgSrc(urls[0]);
+                    setImageLoaded(false);
+                    setCurrentUrlIndex(0);
                 }
-                return url;
+            }, [infographic]);
+
+            const handleImageError = () => {
+                const urls = getImageUrlWithFallback(infographic.imageUrl);
+                const nextIndex = currentUrlIndex + 1;
+                
+                if (nextIndex < urls.length) {
+                    console.log(`Viewer trying fallback URL ${nextIndex + 1}/${urls.length}:`, urls[nextIndex]);
+                    setImgSrc(urls[nextIndex]);
+                    setCurrentUrlIndex(nextIndex);
+                } else {
+                    console.error('All viewer image URLs failed for:', infographic.imageUrl);
+                    setImgSrc('https://via.placeholder.com/800x1200/e8f0f8/003366?text=รูปภาพไม่สามารถโหลดได้');
+                }
+            };
+
+            const handleImageLoad = () => {
+                setImageLoaded(true);
+                console.log('Image loaded successfully in viewer');
+            };
+
+            const openInDrive = () => {
+                const fileId = infographic.imageUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1] || 
+                              infographic.imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+                if (fileId) {
+                    window.open(`https://drive.google.com/file/d/${fileId}/view`, '_blank');
+                } else {
+                    window.open(infographic.imageUrl, '_blank');
+                }
             };
 
             return (
@@ -1118,26 +1180,29 @@
                             </button>
                         </div>
                         
-                        {/* ใช้ <a> tag เพื่อให้ iPhone กดค้างบันทึกรูปได้ */}
-                        <a 
-                            href={getDirectImageUrl(infographic.imageUrl)}
-                            target="_blank"
-                            className="flex-1 overflow-auto bg-white/5 rounded-3xl p-4 backdrop-blur hide-scroll block"
-                        >
+                        <div className="flex-1 overflow-auto bg-white/5 rounded-3xl p-4 backdrop-blur hide-scroll modal-image-container">
+                            {!imageLoaded && (
+                                <div className="flex items-center justify-center h-full">
+                                    <div className="text-center">
+                                        <i className="fa-solid fa-spinner fa-spin text-4xl text-white mb-4"></i>
+                                        <p className="text-white/60">กำลังโหลดภาพ...</p>
+                                    </div>
+                                </div>
+                            )}
                             <img 
-                                src={getDirectImageUrl(infographic.imageUrl)} 
+                                src={imgSrc} 
                                 alt={infographic.title}
                                 className="w-full h-auto object-contain rounded-2xl"
-                                onError={(e) => {
-                                    console.error('Image load error in viewer:', infographic.imageUrl);
-                                    e.target.src = 'https://via.placeholder.com/800x1200/e8f0f8/003366?text=รูปภาพไม่สามารถโหลดได้';
-                                }}
+                                crossOrigin="anonymous"
+                                onError={handleImageError}
+                                onLoad={handleImageLoad}
+                                style={{ display: imageLoaded ? 'block' : 'none' }}
                             />
-                        </a>
+                        </div>
 
                         <p className="text-white/60 text-center text-xs mt-2 mb-2">
                             <i className="fa-solid fa-hand-pointer mr-1"></i>
-                            กดค้างที่รูปภาพเพื่อบันทึกลงเครื่อง (iPhone/iPad)
+                            กดปุ่มด้านล่างเพื่อดาวน์โหลดหรือเปิดใน Google Drive
                         </p>
 
                         <div className="flex gap-3">
@@ -1149,14 +1214,7 @@
                                 ดาวน์โหลดภาพ
                             </button>
                             <button 
-                                onClick={() => {
-                                    const match = infographic.imageUrl.match(/[?&]id=([^&]+)/);
-                                    if (match && match[1]) {
-                                        window.open(`https://drive.google.com/file/d/${match[1]}/view`, '_blank');
-                                    } else {
-                                        window.open(infographic.imageUrl, '_blank');
-                                    }
-                                }}
+                                onClick={openInDrive}
                                 className="bg-white/20 text-white py-4 px-6 rounded-2xl font-bold hover:bg-white/30 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg"
                             >
                                 <i className="fa-brands fa-google-drive"></i>
@@ -1168,6 +1226,7 @@
             );
         }
 
+        // ฟอร์มเพิ่มวิดีโอ (ไม่มีการเปลี่ยนแปลง)
         function VideoFormModal({ isOpen, onClose, refreshData, initialData = null }) {
             const [loading, setLoading] = useState(false);
             const [previewThumbnail, setPreviewThumbnail] = useState('');
@@ -1349,6 +1408,7 @@
             );
         }
 
+        // ฟอร์มเพิ่ม Infographic (ไม่มีการเปลี่ยนแปลง)
         function InfographicFormModal({ isOpen, onClose, refreshData, initialData = null }) {
             const [loading, setLoading] = useState(false);
             const formRef = useRef(null);
@@ -1484,6 +1544,7 @@
             );
         }
 
+        // ฟอร์มเพิ่มผลงาน (ไม่มีการเปลี่ยนแปลง)
         function ProjectFormModal({ isOpen, onClose, refreshData, initialData = null }) {
             const [loading, setLoading] = useState(false);
             const formRef = useRef(null);
@@ -1759,7 +1820,6 @@
                     const data = await res.json();
                     console.log('Videos data received:', data);
                     if (Array.isArray(data)) {
-                        // ข้อมูลจาก API มาเรียงตาม timestamp แล้ว ไม่ต้อง reverse
                         setVideos(data);
                     } else {
                         console.log('No videos found or invalid response');
@@ -1784,35 +1844,28 @@
             }, [activeTab]);
 
             useEffect(() => {
-                // Track visitors - ใช้ localStorage เป็นหลัก
                 const VISITOR_KEY = 'portfolio_visitor_count';
                 const VISITED_KEY = 'portfolio_has_visited';
                 const SESSION_KEY = 'portfolio_session_id';
                 
-                // สร้าง session ID สำหรับ session ปัจจุบัน
                 let sessionId = sessionStorage.getItem(SESSION_KEY);
                 if (!sessionId) {
                     sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
                     sessionStorage.setItem(SESSION_KEY, sessionId);
                 }
                 
-                // ตรวจสอบว่าเคยเยี่ยมชมหรือยัง
                 const hasVisited = localStorage.getItem(VISITED_KEY);
                 let currentCount = parseInt(localStorage.getItem(VISITOR_KEY) || '0');
                 
                 if (!hasVisited) {
-                    // ผู้เยี่ยมชมใหม่
                     localStorage.setItem(VISITED_KEY, 'true');
                     currentCount += 1;
                     localStorage.setItem(VISITOR_KEY, currentCount.toString());
-                    
-                    // พยายามส่งข้อมูลไป API (ถ้ามี)
                     fetch(`${GAS_API_URL}?action=trackVisitor`, { mode: 'no-cors' }).catch(() => {});
                 }
                 
                 setVisitors(currentCount);
                 
-                // พยายามดึงข้อมูลจาก API ถ้ามีค่ามากกว่า
                 fetch(`${GAS_API_URL}?action=getStats`)
                     .then(res => res.json())
                     .then(data => {
@@ -1958,12 +2011,13 @@
 
             const handleDownloadInfographic = async (infographic) => {
                 try {
-                    const match = infographic.imageUrl.match(/[?&]id=([^&]+)/);
-                    if (!match || !match[1]) {
+                    const fileId = infographic.imageUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1] || 
+                                  infographic.imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+                    
+                    if (!fileId) {
                         throw new Error('Cannot extract file ID');
                     }
                     
-                    const fileId = match[1];
                     const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
                     
                     const link = document.createElement('a');
@@ -1979,8 +2033,8 @@
                     console.error("Download error:", error);
                     Swal.fire({
                         icon: 'info',
-                        title: 'คำแนะนำ',
-                        html: 'สำหรับ iPhone/iPad:<br><b>กดค้างที่รูปภาพ</b> แล้วเลือก "บันทึกภาพ"',
+                        title: 'คำแนะนำสำหรับ iPhone/iPad',
+                        html: '1. คลิกปุ่ม "ดูภาพเต็ม"<br>2. <b>กดค้างที่รูปภาพ</b><br>3. เลือก "บันทึกรูปภาพ" หรือ "Save Image"',
                         confirmButtonColor: '#003366'
                     });
                 }
