@@ -100,8 +100,14 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
+        @keyframes pulse-save {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
         .logo-glow { animation: glow-pulse 3s ease-in-out infinite; }
         .animate-count-up { animation: countUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        .animate-pulse-save { animation: pulse-save 2s ease-in-out infinite; }
         
         .stat-card {
             background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
@@ -318,19 +324,35 @@
             border-radius: 0.75rem !important;
         }
 
-        /* แก้ไขสำหรับ iOS - ให้กดค้างบันทึกรูปได้ */
-        .infographic-image-wrapper img {
+        /* ⭐ iOS Image Save - ให้กดค้างบันทึกรูปได้ */
+        .infographic-image-wrapper img,
+        .modal-image-container img,
+        .ios-saveable-image {
             -webkit-user-select: none;
-            -webkit-touch-callout: default;
-            pointer-events: auto;
+            -webkit-touch-callout: default !important;
+            pointer-events: auto !important;
+            touch-action: auto !important;
         }
         
         .modal-image-container img {
-            -webkit-user-select: none;
-            -webkit-touch-callout: default;
-            pointer-events: auto;
             max-width: 100%;
             height: auto;
+        }
+
+        /* Save Button Animation */
+        .save-btn-highlight {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+        
+        .save-btn-highlight:hover {
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+        }
+
+        /* iOS Hint Box */
+        .ios-hint-box {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
         }
     </style>
 </head>
@@ -346,6 +368,12 @@
         const CATEGORIES = ["ทั้งหมด", "Web Application", "AI & Data", "สื่อการสอน", "อื่นๆ"];
         const VIDEO_CATEGORIES = ["สื่อการสอน", "สื่อประชาสัมพันธ์", "อื่นๆ"];
         const INFOGRAPHIC_FOLDER_ID = "1PqKi9ScERr0fGvgFk4Njq7h02uht2K7T";
+
+        // ⭐ ตรวจสอบว่าเป็น iOS หรือไม่
+        const isIOS = () => {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        };
 
         const Toast = Swal.mixin({
             toast: true,
@@ -479,44 +507,40 @@
             return url;
         };
 
-        // ⭐ ฟังก์ชันสำคัญ - แก้ปัญหาการแสดงภาพบน iPhone
-        const getDirectImageUrl = (url) => {
-            if (!url) return '';
+        // ⭐ ฟังก์ชันสำคัญ - ดึง File ID จาก URL
+        const extractFileId = (url) => {
+            if (!url) return null;
             
-            let fileId = null;
+            const patterns = [
+                /\/d\/([a-zA-Z0-9_-]+)/,
+                /[?&]id=([a-zA-Z0-9_-]+)/,
+                /\/file\/d\/([a-zA-Z0-9_-]+)/
+            ];
             
-            // ลองหา file ID จากหลายรูปแบบ
-            let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (match) fileId = match[1];
-            
-            if (!fileId) {
-                match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-                if (match) fileId = match[1];
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) return match[1];
             }
-            
-            if (!fileId) {
-                match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-                if (match) fileId = match[1];
-            }
-            
-            // ถ้าหา file ID เจอ ใช้ lh3.googleusercontent.com ที่ iOS รองรับดี
+            return null;
+        };
+
+        // ⭐ ฟังก์ชันสำคัญ - สร้าง URL ที่รองรับ iOS (ไม่ใช้ crossOrigin)
+        const getIOSFriendlyImageUrl = (url) => {
+            const fileId = extractFileId(url);
             if (fileId) {
-                return `https://lh3.googleusercontent.com/d/${fileId}=s2000`;
+                // ใช้ thumbnail URL ที่รองรับ iOS ดีที่สุด
+                return `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`;
             }
-            
             return url;
         };
 
-        // ฟังก์ชัน fallback สำหรับกรณีที่โหลดภาพไม่ได้
-        const getImageUrlWithFallback = (url) => {
-            const fileId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1] || 
-                          url.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1] ||
-                          url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1];
-            
+        // ⭐ รายการ URL fallback สำหรับ iOS
+        const getImageUrlsForFallback = (url) => {
+            const fileId = extractFileId(url);
             if (fileId) {
                 return [
-                    `https://lh3.googleusercontent.com/d/${fileId}=s2000`,
                     `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`,
+                    `https://lh3.googleusercontent.com/d/${fileId}=s2000`,
                     `https://drive.google.com/uc?export=view&id=${fileId}`,
                     url
                 ];
@@ -825,28 +849,28 @@
             );
         }
 
-        // ⭐ Component สำคัญ - แก้ไขการแสดงภาพ Infographic
+        // ⭐ Component แก้ไข - InfographicCard (ลบ crossOrigin)
         function InfographicCard({ infographic, onView, onDownload, onEdit, onDelete }) {
             const [imgSrc, setImgSrc] = useState('');
             const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+            const [imageLoaded, setImageLoaded] = useState(false);
             
             useEffect(() => {
-                const urls = getImageUrlWithFallback(infographic.imageUrl);
-                console.log('Loading infographic image:', urls[0]);
+                const urls = getImageUrlsForFallback(infographic.imageUrl);
                 setImgSrc(urls[0]);
+                setCurrentUrlIndex(0);
+                setImageLoaded(false);
             }, [infographic.imageUrl]);
 
             const handleImageError = () => {
-                const urls = getImageUrlWithFallback(infographic.imageUrl);
+                const urls = getImageUrlsForFallback(infographic.imageUrl);
                 const nextIndex = currentUrlIndex + 1;
                 
                 if (nextIndex < urls.length) {
-                    console.log(`Trying fallback URL ${nextIndex + 1}/${urls.length}:`, urls[nextIndex]);
                     setImgSrc(urls[nextIndex]);
                     setCurrentUrlIndex(nextIndex);
                 } else {
-                    console.error('All image URLs failed for:', infographic.imageUrl);
-                    setImgSrc('https://via.placeholder.com/400x600/e8f0f8/003366?text=รูปภาพไม่สามารถโหลดได้');
+                    setImgSrc('https://via.placeholder.com/400x600/e8f0f8/003366?text=ไม่สามารถโหลดได้');
                 }
             };
 
@@ -872,13 +896,19 @@
                             className="relative cursor-pointer overflow-hidden infographic-image-wrapper"
                             onClick={() => onView(infographic)}
                         >
+                            {!imageLoaded && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                                    <i className="fa-solid fa-spinner fa-spin text-2xl text-gray-400"></i>
+                                </div>
+                            )}
+                            {/* ⭐ ลบ crossOrigin ออก */}
                             <img 
                                 src={imgSrc} 
                                 alt={infographic.title} 
-                                className="w-full h-auto object-cover image-zoom" 
+                                className={`w-full h-auto object-cover image-zoom ios-saveable-image ${imageLoaded ? '' : 'opacity-0'}`}
                                 loading="lazy"
-                                crossOrigin="anonymous"
                                 onError={handleImageError}
+                                onLoad={() => setImageLoaded(true)}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             <div className="long-press-hint">
@@ -1118,46 +1148,45 @@
             );
         }
 
-        // ⭐ Component สำคัญ - แก้ไขการแสดงภาพใน Modal
+        // ⭐⭐⭐ Component หลักที่แก้ไข - InfographicViewer (รองรับ iOS)
         function InfographicViewer({ infographic, onClose, onDownload }) {
             if (!infographic) return null;
             
             const [imgSrc, setImgSrc] = useState('');
             const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
             const [imageLoaded, setImageLoaded] = useState(false);
+            const [showIOSHint, setShowIOSHint] = useState(false);
             
             useEffect(() => {
                 if (infographic) {
-                    const urls = getImageUrlWithFallback(infographic.imageUrl);
-                    console.log('Loading image in viewer:', urls[0]);
+                    const urls = getImageUrlsForFallback(infographic.imageUrl);
                     setImgSrc(urls[0]);
                     setImageLoaded(false);
                     setCurrentUrlIndex(0);
+                    setShowIOSHint(isIOS());
                 }
             }, [infographic]);
 
             const handleImageError = () => {
-                const urls = getImageUrlWithFallback(infographic.imageUrl);
+                const urls = getImageUrlsForFallback(infographic.imageUrl);
                 const nextIndex = currentUrlIndex + 1;
                 
                 if (nextIndex < urls.length) {
-                    console.log(`Viewer trying fallback URL ${nextIndex + 1}/${urls.length}:`, urls[nextIndex]);
+                    console.log(`Trying fallback ${nextIndex + 1}/${urls.length}`);
                     setImgSrc(urls[nextIndex]);
                     setCurrentUrlIndex(nextIndex);
                 } else {
-                    console.error('All viewer image URLs failed for:', infographic.imageUrl);
-                    setImgSrc('https://via.placeholder.com/800x1200/e8f0f8/003366?text=รูปภาพไม่สามารถโหลดได้');
+                    setImgSrc('https://via.placeholder.com/800x1200/e8f0f8/003366?text=ไม่สามารถโหลดภาพได้');
+                    setImageLoaded(true);
                 }
             };
 
             const handleImageLoad = () => {
                 setImageLoaded(true);
-                console.log('Image loaded successfully in viewer');
             };
 
             const openInDrive = () => {
-                const fileId = infographic.imageUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1] || 
-                              infographic.imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+                const fileId = extractFileId(infographic.imageUrl);
                 if (fileId) {
                     window.open(`https://drive.google.com/file/d/${fileId}/view`, '_blank');
                 } else {
@@ -1165,11 +1194,24 @@
                 }
             };
 
+            // ⭐ ฟังก์ชันเปิดภาพในแท็บใหม่สำหรับ iOS
+            const openImageInNewTab = () => {
+                const fileId = extractFileId(infographic.imageUrl);
+                if (fileId) {
+                    // เปิด URL ที่สามารถกดค้างบันทึกได้
+                    window.open(`https://drive.google.com/uc?export=view&id=${fileId}`, '_blank');
+                } else {
+                    window.open(infographic.imageUrl, '_blank');
+                }
+                showSuccess("เปิดภาพในแท็บใหม่แล้ว กดค้างที่ภาพเพื่อบันทึก");
+            };
+
             return (
-                <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 modal-backdrop" onClick={onClose}>
-                    <div className="w-full max-w-4xl max-h-[90vh] flex flex-col modal-content" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-4 px-2">
-                            <h3 className="text-white font-bold text-lg md:text-xl truncate pr-4 flex-1">
+                <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 modal-backdrop" onClick={onClose}>
+                    <div className="w-full max-w-4xl max-h-[95vh] flex flex-col modal-content" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="flex justify-between items-center mb-3 px-2">
+                            <h3 className="text-white font-bold text-base md:text-xl truncate pr-4 flex-1">
                                 {infographic.title}
                             </h3>
                             <button 
@@ -1179,54 +1221,86 @@
                                 <i className="fa-solid fa-xmark text-white text-xl"></i>
                             </button>
                         </div>
+
+                        {/* ⭐ iOS Hint Box */}
+                        {showIOSHint && (
+                            <div className="ios-hint-box rounded-xl p-3 mb-3 mx-2">
+                                <div className="flex items-start gap-3">
+                                    <div className="bg-amber-500 rounded-full p-2 flex-shrink-0">
+                                        <i className="fa-solid fa-lightbulb text-white text-sm"></i>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-amber-800 font-semibold text-sm mb-1">วิธีบันทึกภาพบน iPhone/iPad</p>
+                                        <p className="text-amber-700 text-xs leading-relaxed">
+                                            กดปุ่ม <strong>"บันทึกภาพ"</strong> ด้านล่าง แล้ว<strong>กดค้างที่รูปภาพ</strong> → เลือก "บันทึกภาพ"
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={() => setShowIOSHint(false)}
+                                        className="text-amber-600 hover:text-amber-800 p-1"
+                                    >
+                                        <i className="fa-solid fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         
-                        <div className="flex-1 overflow-auto bg-white/5 rounded-3xl p-4 backdrop-blur hide-scroll modal-image-container">
+                        {/* Image Container */}
+                        <div className="flex-1 overflow-auto bg-white/5 rounded-2xl p-3 backdrop-blur hide-scroll modal-image-container min-h-0">
                             {!imageLoaded && (
-                                <div className="flex items-center justify-center h-full">
+                                <div className="flex items-center justify-center h-64">
                                     <div className="text-center">
                                         <i className="fa-solid fa-spinner fa-spin text-4xl text-white mb-4"></i>
-                                        <p className="text-white/60">กำลังโหลดภาพ...</p>
+                                        <p className="text-white/60 text-sm">กำลังโหลดภาพ...</p>
                                     </div>
                                 </div>
                             )}
+                            {/* ⭐ ลบ crossOrigin ออก - สำคัญมาก! */}
                             <img 
                                 src={imgSrc} 
                                 alt={infographic.title}
-                                className="w-full h-auto object-contain rounded-2xl"
-                                crossOrigin="anonymous"
+                                className={`w-full h-auto object-contain rounded-xl ios-saveable-image ${imageLoaded ? '' : 'hidden'}`}
                                 onError={handleImageError}
                                 onLoad={handleImageLoad}
-                                style={{ display: imageLoaded ? 'block' : 'none' }}
                             />
                         </div>
 
-                        <p className="text-white/60 text-center text-xs mt-2 mb-2">
-                            <i className="fa-solid fa-hand-pointer mr-1"></i>
-                            กดปุ่มด้านล่างเพื่อดาวน์โหลดหรือเปิดใน Google Drive
-                        </p>
+                        {/* Action Buttons */}
+                        <div className="mt-3 space-y-2">
+                            {/* ⭐ ปุ่มหลัก - บันทึกภาพ (เด่นชัด) */}
+                            <button 
+                                onClick={openImageInNewTab}
+                                className="w-full save-btn-highlight text-white py-4 rounded-2xl font-bold active:scale-95 transition-all flex items-center justify-center gap-3 animate-pulse-save"
+                            >
+                                <i className="fa-solid fa-download text-xl"></i>
+                                <span className="text-lg">บันทึกภาพ</span>
+                                {isIOS() && <span className="text-xs opacity-80">(กดค้างที่รูป)</span>}
+                            </button>
 
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={() => onDownload(infographic)}
-                                className="flex-1 bg-white text-primary py-4 rounded-2xl font-bold hover:bg-gray-100 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg"
-                            >
-                                <i className="fa-solid fa-download"></i>
-                                ดาวน์โหลดภาพ
-                            </button>
-                            <button 
-                                onClick={openInDrive}
-                                className="bg-white/20 text-white py-4 px-6 rounded-2xl font-bold hover:bg-white/30 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg"
-                            >
-                                <i className="fa-brands fa-google-drive"></i>
-                                <span className="hidden md:inline">เปิดใน Drive</span>
-                            </button>
+                            {/* ปุ่มรอง */}
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => onDownload(infographic)}
+                                    className="flex-1 bg-white/20 text-white py-3 rounded-xl font-semibold hover:bg-white/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <i className="fa-solid fa-file-arrow-down"></i>
+                                    <span className="text-sm">ดาวน์โหลด</span>
+                                </button>
+                                <button 
+                                    onClick={openInDrive}
+                                    className="flex-1 bg-white/20 text-white py-3 rounded-xl font-semibold hover:bg-white/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <i className="fa-brands fa-google-drive"></i>
+                                    <span className="text-sm">เปิดใน Drive</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             );
         }
 
-        // ฟอร์มเพิ่มวิดีโอ (ไม่มีการเปลี่ยนแปลง)
+        // ฟอร์มเพิ่มวิดีโอ
         function VideoFormModal({ isOpen, onClose, refreshData, initialData = null }) {
             const [loading, setLoading] = useState(false);
             const [previewThumbnail, setPreviewThumbnail] = useState('');
@@ -1408,7 +1482,7 @@
             );
         }
 
-        // ฟอร์มเพิ่ม Infographic (ไม่มีการเปลี่ยนแปลง)
+        // ฟอร์มเพิ่ม Infographic
         function InfographicFormModal({ isOpen, onClose, refreshData, initialData = null }) {
             const [loading, setLoading] = useState(false);
             const formRef = useRef(null);
@@ -1544,7 +1618,7 @@
             );
         }
 
-        // ฟอร์มเพิ่มผลงาน (ไม่มีการเปลี่ยนแปลง)
+        // ฟอร์มเพิ่มผลงาน
         function ProjectFormModal({ isOpen, onClose, refreshData, initialData = null }) {
             const [loading, setLoading] = useState(false);
             const formRef = useRef(null);
@@ -1798,11 +1872,9 @@
                 try {
                     const res = await fetch(`${GAS_API_URL}?action=getInfographics&folderId=${INFOGRAPHIC_FOLDER_ID}`);
                     const data = await res.json();
-                    console.log('Infographics data received:', data);
                     if (Array.isArray(data)) {
                         setInfographics(data);
                     } else {
-                        console.log('No infographics found or invalid response');
                         setInfographics([]);
                     }
                 } catch (e) { 
@@ -1818,11 +1890,9 @@
                 try {
                     const res = await fetch(`${GAS_API_URL}?action=getVideos`);
                     const data = await res.json();
-                    console.log('Videos data received:', data);
                     if (Array.isArray(data)) {
                         setVideos(data);
                     } else {
-                        console.log('No videos found or invalid response');
                         setVideos([]);
                     }
                 } catch (e) { 
@@ -2009,34 +2079,34 @@
                 }
             };
 
+            // ⭐ ฟังก์ชันดาวน์โหลด - ปรับปรุงสำหรับ iOS
             const handleDownloadInfographic = async (infographic) => {
-                try {
-                    const fileId = infographic.imageUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1] || 
-                                  infographic.imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
-                    
-                    if (!fileId) {
-                        throw new Error('Cannot extract file ID');
-                    }
-                    
-                    const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-                    
-                    const link = document.createElement('a');
-                    link.href = downloadUrl;
-                    link.download = `${infographic.title}.jpg`;
-                    link.target = '_blank';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    
-                    showSuccess("กำลังดาวน์โหลด...");
-                } catch (error) {
-                    console.error("Download error:", error);
+                const fileId = extractFileId(infographic.imageUrl);
+                
+                if (!fileId) {
+                    showError('ไม่สามารถดึงข้อมูลไฟล์ได้');
+                    return;
+                }
+                
+                // เปิด URL ดาวน์โหลดในแท็บใหม่
+                const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                window.open(downloadUrl, '_blank');
+                
+                if (isIOS()) {
                     Swal.fire({
                         icon: 'info',
-                        title: 'คำแนะนำสำหรับ iPhone/iPad',
-                        html: '1. คลิกปุ่ม "ดูภาพเต็ม"<br>2. <b>กดค้างที่รูปภาพ</b><br>3. เลือก "บันทึกรูปภาพ" หรือ "Save Image"',
-                        confirmButtonColor: '#003366'
+                        title: 'วิธีบันทึกภาพบน iPhone/iPad',
+                        html: `
+                            <div class="text-left text-sm space-y-2">
+                                <p><strong>วิธีที่ 1:</strong> กดค้างที่รูปภาพในแท็บที่เปิดใหม่ แล้วเลือก "บันทึกภาพ"</p>
+                                <p><strong>วิธีที่ 2:</strong> กดไอคอน แชร์ (📤) แล้วเลือก "บันทึกลงในไฟล์"</p>
+                            </div>
+                        `,
+                        confirmButtonColor: '#003366',
+                        confirmButtonText: 'เข้าใจแล้ว'
                     });
+                } else {
+                    showSuccess("กำลังดาวน์โหลด...");
                 }
             };
 
