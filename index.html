@@ -1425,16 +1425,27 @@
                 if (bgImgRef.current && !bgImgRef.current.fallback) drawCanvas(bgImgRef.current, cfg);
             }, [cfg]);
 
-            const handleUse = () => {
+            const handleUse = async () => {
                 const canvas = canvasRef.current;
                 if (!canvas) return;
+                // รอ font โหลดครบ แล้ว redraw ก่อน capture
+                await document.fonts.ready;
+                if (bgImgRef.current && !bgImgRef.current.fallback) {
+                    drawCanvas(bgImgRef.current, cfg);
+                }
+                // รอ 1 frame ให้ canvas flush
+                await new Promise(r => requestAnimationFrame(r));
+                // ⭐ บีบเป็น JPEG 85% เพื่อลดขนาด payload (PNG 1200x900 ใหญ่เกิน GAS limit)
                 canvas.toBlob(blob => {
+                    if (!blob) { showError('ไม่สามารถสร้างภาพได้ กรุณาลองใหม่'); return; }
                     const reader = new FileReader();
                     reader.onload = e => {
-                        onUse(e.target.result.split(',')[1], 'image/png', canvas.toDataURL('image/png'));
+                        const b64 = e.target.result.split(',')[1];
+                        const previewUrl = canvas.toDataURL('image/jpeg', 0.85);
+                        onUse(b64, 'image/jpeg', previewUrl);
                     };
                     reader.readAsDataURL(blob);
-                }, 'image/png');
+                }, 'image/jpeg', 0.85);
             };
 
             const Ctrl = ({ label, children }) => (
@@ -1547,7 +1558,16 @@
                 const formData = new FormData(formRef.current);
                 const file = formData.get('imageFile');
                 try {
-                    let payload = { action: isEditMode ? 'update' : 'create', id: isEditMode ? initialData.id : null, title: formData.get('title'), description: formData.get('description'), category: formData.get('category'), link: formData.get('link'), oldImageUrl: isEditMode ? initialData.imageUrl : "" };
+                    // ⭐ ใช้ titleVal โดยตรง (controlled input ไม่ส่งผ่าน FormData)
+                    let payload = {
+                        action: isEditMode ? 'update' : 'create',
+                        id: isEditMode ? initialData.id : null,
+                        title: titleVal,
+                        description: formData.get('description'),
+                        category: formData.get('category'),
+                        link: formData.get('link'),
+                        oldImageUrl: isEditMode ? initialData.imageUrl : ""
+                    };
                     // ⭐ ภาพจาก designer มาก่อน ถ้าไม่มีค่อยดูจากไฟล์ที่อัปโหลด
                     if (designerImg) {
                         payload.imageBase64 = designerImg.base64;
