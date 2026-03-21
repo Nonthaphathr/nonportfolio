@@ -1379,7 +1379,18 @@
                 if (!canvas) return;
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, 1200, 900);
-                ctx.drawImage(img, 0, 0, 1200, 900);
+
+                if (img && !img.fallback) {
+                    ctx.drawImage(img, 0, 0, 1200, 900);
+                } else {
+                    // Fallback gradient
+                    const grad = ctx.createLinearGradient(0, 0, 1200, 900);
+                    grad.addColorStop(0, '#0f2027');
+                    grad.addColorStop(0.5, '#203a43');
+                    grad.addColorStop(1, '#2c5364');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, 1200, 900);
+                }
 
                 ctx.textAlign = 'center';
                 ctx.fillStyle = c.color;
@@ -1401,22 +1412,43 @@
                 ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
             };
 
-            // Load background image once
+            // ⭐ โหลดพื้นหลังผ่าน fetch→blobURL เพื่อหลีกเลี่ยง CORS tainted canvas
             useEffect(() => {
-                const img = new Image();
-                img.crossOrigin = 'Anonymous';
-                img.src = 'https://nonthaphathr.github.io/uploadimg/blankbg.png';
-                img.onload = () => { bgImgRef.current = img; drawCanvas(img, cfg); };
-                img.onerror = () => {
-                    // Fallback: draw gradient background
-                    const canvas = canvasRef.current;
-                    if (!canvas) return;
-                    const ctx = canvas.getContext('2d');
-                    const grad = ctx.createLinearGradient(0, 0, 1200, 900);
-                    grad.addColorStop(0, '#0f2027'); grad.addColorStop(0.5, '#203a43'); grad.addColorStop(1, '#2c5364');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(0, 0, 1200, 900);
-                    bgImgRef.current = { fallback: true };
+                let blobUrl = null;
+
+                fetch('https://nonthaphathr.github.io/uploadimg/blankbg.png')
+                    .then(r => {
+                        if (!r.ok) throw new Error('fetch failed');
+                        return r.blob();
+                    })
+                    .then(blob => {
+                        blobUrl = URL.createObjectURL(blob);
+                        const img = new Image();
+                        img.onload = () => {
+                            bgImgRef.current = img;
+                            drawCanvas(img, cfg);
+                        };
+                        img.src = blobUrl;
+                        // ⭐ ไม่ revoke ทันที เพราะ img ยังต้องใช้ redraw
+                        // จะ revoke ตอน cleanup
+                    })
+                    .catch(() => {
+                        // Fallback: gradient สวยงาม
+                        const canvas = canvasRef.current;
+                        if (!canvas) return;
+                        const ctx = canvas.getContext('2d');
+                        const grad = ctx.createLinearGradient(0, 0, 1200, 900);
+                        grad.addColorStop(0, '#0f2027');
+                        grad.addColorStop(0.5, '#203a43');
+                        grad.addColorStop(1, '#2c5364');
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(0, 0, 1200, 900);
+                        bgImgRef.current = { fallback: true };
+                        drawCanvas({ fallback: true }, cfg);
+                    });
+
+                return () => {
+                    if (blobUrl) URL.revokeObjectURL(blobUrl);
                 };
             }, []);
 
@@ -1425,27 +1457,71 @@
                 if (bgImgRef.current && !bgImgRef.current.fallback) drawCanvas(bgImgRef.current, cfg);
             }, [cfg]);
 
-            const handleUse = async () => {
-                const canvas = canvasRef.current;
-                if (!canvas) return;
-                // รอ font โหลดครบ แล้ว redraw ก่อน capture
-                await document.fonts.ready;
-                if (bgImgRef.current && !bgImgRef.current.fallback) {
-                    drawCanvas(bgImgRef.current, cfg);
+            // ⭐ handleUse — synchronous ล้วน ไม่ await ใดๆ ทั้งสิ้น
+            const handleUse = () => {
+                try {
+                    const W = 800, H = 533;
+                    const ec = document.createElement('canvas');
+                    ec.width = W; ec.height = H;
+                    const ex = ec.getContext('2d');
+                    if (!ex) { showError('Browser ไม่รองรับ Canvas'); return; }
+
+                    // พื้นหลัง gradient
+                    const bgGrad = ex.createLinearGradient(0, 0, W, H);
+                    bgGrad.addColorStop(0,   '#0f2027');
+                    bgGrad.addColorStop(0.5, '#203a43');
+                    bgGrad.addColorStop(1,   '#2c5364');
+                    ex.fillStyle = bgGrad;
+                    ex.fillRect(0, 0, W, H);
+
+                    // Grid
+                    ex.strokeStyle = 'rgba(249,115,22,0.07)';
+                    ex.lineWidth = 1;
+                    for (let x = 0; x <= W; x += 60) { ex.beginPath(); ex.moveTo(x,0); ex.lineTo(x,H); ex.stroke(); }
+                    for (let y = 0; y <= H; y += 60) { ex.beginPath(); ex.moveTo(0,y); ex.lineTo(W,y); ex.stroke(); }
+
+                    // Glow
+                    const glow = ex.createRadialGradient(W*0.82, H*0.18, 0, W*0.82, H*0.18, 260);
+                    glow.addColorStop(0, 'rgba(249,115,22,0.22)');
+                    glow.addColorStop(1, 'transparent');
+                    ex.fillStyle = glow;
+                    ex.fillRect(0, 0, W, H);
+
+                    // ข้อความ — ใช้ Kanit เท่านั้น (โหลดแน่นอน)
+                    const scaleY = H / 900;
+                    const titleSize = Math.min(Math.round(cfg.titleSize * 0.75), 96);
+                    const lh = titleSize * cfg.titleLineHeight;
+                    ex.textAlign = 'center';
+                    ex.fillStyle = cfg.color || '#ffffff';
+                    ex.shadowColor = 'rgba(0,0,0,0.8)';
+                    ex.shadowBlur = 14;
+                    ex.shadowOffsetX = 2;
+                    ex.shadowOffsetY = 3;
+                    ex.font = `bold ${titleSize}px Kanit, sans-serif`;
+                    cfg.title.split('\n').forEach((line, i) => {
+                        ex.fillText(line, W / 2, Math.round(cfg.titleY * scaleY) + i * lh);
+                    });
+
+                    const subSize = Math.min(Math.round(cfg.subSize * 0.75), 52);
+                    ex.font = `600 ${subSize}px Kanit, sans-serif`;
+                    ex.shadowBlur = 8;
+                    ex.fillText(cfg.subtitle || '', W / 2, Math.round(cfg.subY * scaleY));
+
+                    ex.shadowBlur = 0; ex.shadowOffsetX = 0; ex.shadowOffsetY = 0;
+
+                    // Export — synchronous toDataURL (clean canvas ไม่มี CORS taint)
+                    const dataUrl = ec.toDataURL('image/jpeg', 0.85);
+                    if (!dataUrl || dataUrl === 'data:,') { showError('toDataURL ล้มเหลว'); return; }
+                    const b64 = dataUrl.split(',')[1];
+                    if (!b64 || b64.length < 100) { showError('ข้อมูลภาพว่างเปล่า length=' + (b64||'').length); return; }
+
+                    console.log('[CoverDesigner] handleUse OK — b64 length:', b64.length);
+                    onUse(b64, 'image/jpeg', dataUrl);
+
+                } catch (err) {
+                    console.error('[CoverDesigner] handleUse error:', err);
+                    showError('เกิดข้อผิดพลาด: ' + err.message);
                 }
-                // รอ 1 frame ให้ canvas flush
-                await new Promise(r => requestAnimationFrame(r));
-                // ⭐ บีบเป็น JPEG 85% เพื่อลดขนาด payload (PNG 1200x900 ใหญ่เกิน GAS limit)
-                canvas.toBlob(blob => {
-                    if (!blob) { showError('ไม่สามารถสร้างภาพได้ กรุณาลองใหม่'); return; }
-                    const reader = new FileReader();
-                    reader.onload = e => {
-                        const b64 = e.target.result.split(',')[1];
-                        const previewUrl = canvas.toDataURL('image/jpeg', 0.85);
-                        onUse(b64, 'image/jpeg', previewUrl);
-                    };
-                    reader.readAsDataURL(blob);
-                }, 'image/jpeg', 0.85);
             };
 
             const Ctrl = ({ label, children }) => (
@@ -1529,36 +1605,47 @@
         // ⭐ ProjectFormModal พร้อม Cover Designer ในตัว
         function ProjectFormModal({ isOpen, onClose, refreshData, initialData = null }) {
             const [loading, setLoading] = useState(false);
-            const [imageMode, setImageMode] = useState('upload');       // 'upload' | 'designer'
-            const [designerImg, setDesignerImg] = useState(null);       // { base64, type, previewUrl }
-            const [titleVal, setTitleVal] = useState('');               // ⭐ track ชื่อผลงานสำหรับส่งเข้า designer
+            const [imageMode, setImageMode] = useState('upload');
+            const [designerPreview, setDesignerPreview] = useState(null); // เก็บแค่ previewUrl สำหรับ UI
+            const designerDataRef = useRef(null);                         // ⭐ ref เก็บ {base64, type} — sync, ไม่ต้องรอ React commit
+            const [titleVal, setTitleVal] = useState('');
             const formRef = useRef(null);
             const isEditMode = !!initialData;
-            const toBase64 = file => new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); });
+            const toBase64 = file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
 
-            // Reset image state + titleVal when modal opens/closes
             useEffect(() => {
                 if (isOpen) {
                     setTitleVal(initialData?.title || '');
                     setImageMode('upload');
-                    setDesignerImg(null);
+                    setDesignerPreview(null);
+                    designerDataRef.current = null;
                 } else {
                     setImageMode('upload');
-                    setDesignerImg(null);
+                    setDesignerPreview(null);
+                    designerDataRef.current = null;
                 }
             }, [isOpen]);
 
+            // ⭐ เมื่อ CoverDesigner เรียก onUse — เก็บลง ref ทันที (sync) + state สำหรับ preview
             const handleDesignerUse = (base64, type, previewUrl) => {
-                setDesignerImg({ base64, type, previewUrl });
+                designerDataRef.current = { base64, type };    // sync — ไม่ต้องรอ React
+                setDesignerPreview(previewUrl);                // async — ใช้แค่แสดง UI preview
+                console.log('[ProjectFormModal] handleDesignerUse — b64 length:', base64.length, 'type:', type);
                 showSuccess('ภาพปกพร้อมแล้ว! กรอกข้อมูลอื่นแล้วกดบันทึก');
             };
 
             const handleSubmit = async (e) => {
-                e.preventDefault(); setLoading(true); showLoading('กำลังบันทึกข้อมูล...');
+                e.preventDefault();
+                setLoading(true);
+                showLoading('กำลังบันทึกข้อมูล...');
                 const formData = new FormData(formRef.current);
                 const file = formData.get('imageFile');
                 try {
-                    // ⭐ ใช้ titleVal โดยตรง (controlled input ไม่ส่งผ่าน FormData)
                     let payload = {
                         action: isEditMode ? 'update' : 'create',
                         id: isEditMode ? initialData.id : null,
@@ -1568,18 +1655,40 @@
                         link: formData.get('link'),
                         oldImageUrl: isEditMode ? initialData.imageUrl : ""
                     };
-                    // ⭐ ภาพจาก designer มาก่อน ถ้าไม่มีค่อยดูจากไฟล์ที่อัปโหลด
-                    if (designerImg) {
-                        payload.imageBase64 = designerImg.base64;
-                        payload.imageType = designerImg.type;
+
+                    // ⭐ อ่านจาก ref — guaranteed ได้ค่าล่าสุดเสมอ
+                    const imgData = designerDataRef.current;
+                    console.log('[handleSubmit] designerDataRef:', imgData ? `b64 len=${imgData.base64.length}` : 'null');
+
+                    if (imgData && imgData.base64) {
+                        payload.imageBase64 = imgData.base64;
+                        payload.imageType   = imgData.type;
+                        console.log('[handleSubmit] ใช้ภาพจาก designer — length:', imgData.base64.length);
                     } else if (file && file.size > 0) {
                         const base64Image = await toBase64(file);
                         payload.imageBase64 = base64Image.split(',')[1];
-                        payload.imageType = file.type;
+                        payload.imageType   = file.type;
+                        console.log('[handleSubmit] ใช้ภาพจาก upload — length:', payload.imageBase64.length);
+                    } else {
+                        console.log('[handleSubmit] ไม่มีภาพ — ส่งโดยไม่มี imageBase64');
                     }
-                    await fetch(GAS_API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-                    closeLoading(); showSuccess(isEditMode ? "แก้ไขข้อมูลสำเร็จ!" : "บันทึกข้อมูลสำเร็จ!"); onClose(); setTimeout(refreshData, 2000);
-                } catch (error) { closeLoading(); showError(error.message); } finally { setLoading(false); }
+
+                    await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(payload)
+                    });
+                    closeLoading();
+                    showSuccess(isEditMode ? "แก้ไขข้อมูลสำเร็จ!" : "บันทึกข้อมูลสำเร็จ!");
+                    onClose();
+                    setTimeout(refreshData, 2000);
+                } catch (error) {
+                    closeLoading();
+                    showError(error.message);
+                } finally {
+                    setLoading(false);
+                }
             };
 
             if (!isOpen) return null;
@@ -1614,7 +1723,7 @@
                                     </button>
                                     <button type="button"
                                         className={`cover-tab-btn ${imageMode === 'designer' ? 'active' : ''}`}
-                                        onClick={() => { setImageMode('designer'); setDesignerImg(null); }}
+                                        onClick={() => { setImageMode('designer'); setDesignerPreview(null); designerDataRef.current = null; }}
                                     >
                                         <i className="fa-solid fa-palette" style={{ marginRight: '6px' }}></i>ดึงปกเริ่มต้น ✨
                                     </button>
@@ -1626,26 +1735,26 @@
                                         className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:border-accent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-accent file:text-white cursor-pointer" />
                                 )}
 
-                                {/* Mode: Cover Designer — ยังไม่ได้ใช้ภาพ */}
-                                {imageMode === 'designer' && !designerImg && (
+                                {/* Mode: Cover Designer — ยังไม่ได้กด "ใช้ภาพนี้" */}
+                                {imageMode === 'designer' && !designerPreview && (
                                     <CoverDesigner
                                         onUse={handleDesignerUse}
                                         initialTitle={titleVal || 'ชื่อผลงาน'}
                                     />
                                 )}
 
-                                {/* Mode: Cover Designer — ใช้ภาพแล้ว แสดง preview */}
-                                {imageMode === 'designer' && designerImg && (
+                                {/* Mode: Cover Designer — กด "ใช้ภาพนี้" แล้ว แสดง preview */}
+                                {imageMode === 'designer' && designerPreview && (
                                     <div style={{ marginTop: '6px' }}>
                                         <div className="cover-preview-wrap">
-                                            <img src={designerImg.previewUrl} alt="ปกที่สร้าง"
+                                            <img src={designerPreview} alt="ปกที่สร้าง"
                                                 style={{ width: '100%', display: 'block' }} />
                                             <div className="cover-preview-badge">
                                                 <i className="fa-solid fa-circle-check"></i>ภาพปกพร้อมแล้ว
                                             </div>
                                         </div>
                                         <button type="button" className="cover-redo-btn"
-                                            onClick={() => setDesignerImg(null)}>
+                                            onClick={() => { setDesignerPreview(null); designerDataRef.current = null; }}>
                                             <i className="fa-solid fa-rotate-left"></i>แก้ไขปกใหม่
                                         </button>
                                     </div>
