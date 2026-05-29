@@ -9,6 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     
     <script>
         tailwind.config = {
@@ -362,12 +363,14 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzszsqb63Dem1xAGnXor_xPUnNDaqGh55vCtH5Dj1-ms6oCcCOoMC72jI7pIuhhqsBS/exec";
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwlzW2Ot25GIsNYAmNtNq9P-MMfmmiYbOWeW6PwcwDfVNgIKwE_l4ZYiQb4R_DG3e3a/exec";
         const LOGO_URL = "https://nonthaphathr.github.io/uploadimg/logobunthuk.png";
         const ADMIN_PIN = "1234";
         const CATEGORIES = ["ทั้งหมด", "Web Application", "AI & Data", "สื่อการสอน", "อื่นๆ"];
         const VIDEO_CATEGORIES = ["สื่อการสอน", "สื่อประชาสัมพันธ์", "อื่นๆ"];
         const INFOGRAPHIC_FOLDER_ID = "1PqKi9ScERr0fGvgFk4Njq7h02uht2K7T";
+        const BLANK_BG_URL = "https://nonthaphathr.github.io/uploadimg/blankbg.png";
+        const TEACHER_NAME = "ครูนนทพัทธ์ หิรัญเรือง";
 
         // ⭐ ตรวจสอบว่าเป็น iOS หรือไม่
         const isIOS = () => {
@@ -548,6 +551,209 @@
             return [url];
         };
 
+        // ⭐ ตรวจสอบว่า URL รูปใช้งานได้จริงหรือไม่ (กรอง ERROR_UPLOAD / ค่าว่าง)
+        const isValidImageUrl = (url) => {
+            if (!url) return false;
+            const s = String(url).trim();
+            if (s === '' || s === 'ERROR_UPLOAD') return false;
+            if (s.startsWith('ERROR')) return false;
+            return s.startsWith('http');
+        };
+
+        // ⭐ บีบอัดรูปก่อนอัปโหลด (กัน payload ใหญ่จนกล้องมือถือ → GAS timeout)
+        // ใช้เฉพาะไฟล์ในเครื่อง จึงไม่เกิด canvas taint
+        const compressImage = (file, maxSize = 1400, quality = 0.82) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    let { width, height } = img;
+                    if (width > height) {
+                        if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+                    } else {
+                        if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
+                };
+                img.onerror = () => reject(new Error('โหลดรูปเพื่อบีบอัดไม่สำเร็จ'));
+                img.src = e.target.result;
+            };
+            reader.onerror = () => reject(new Error('อ่านไฟล์รูปไม่สำเร็จ'));
+            reader.readAsDataURL(file);
+        });
+
+        // ⭐⭐ สร้างภาพ Cover อัตโนมัติจากพื้นหลังเปล่า + ชื่อระบบ + ชื่อครู ⭐⭐
+        // โหลด bg จาก GitHub Pages (รองรับ CORS) ด้วย crossOrigin จึงไม่ taint และ toDataURL ได้
+        let _coverBgCache = null;
+        const loadCoverBg = () => new Promise((resolve, reject) => {
+            if (_coverBgCache) { resolve(_coverBgCache); return; }
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => { _coverBgCache = img; resolve(img); };
+            img.onerror = () => reject(new Error('โหลดภาพพื้นหลังไม่สำเร็จ'));
+            // ใส่ param คงที่ เพื่อให้ cache แยกจากการโหลดแบบ non-CORS ที่อื่น (กัน taint)
+            img.src = BLANK_BG_URL + '?cors=1';
+        });
+
+        const ensureKanit = async () => {
+            if (document.fonts && document.fonts.load) {
+                try {
+                    await Promise.all([
+                        document.fonts.load('700 60px Kanit'),
+                        document.fonts.load('500 40px Kanit')
+                    ]);
+                    await document.fonts.ready;
+                } catch (e) { /* ใช้ฟอนต์ fallback ได้ */ }
+            }
+        };
+
+        // ตัดข้อความเป็นหลายบรรทัดให้พอดีความกว้าง (รองรับทั้งคำเว้นวรรคและคำยาวไม่มีวรรค)
+        const wrapCanvasText = (ctx, text, maxWidth) => {
+            const words = String(text || '').split(/\s+/).filter(Boolean);
+            const lines = [];
+            let cur = '';
+            const breakLong = (w) => {
+                let chunk = '';
+                for (const ch of w) {
+                    if (ctx.measureText(chunk + ch).width > maxWidth && chunk) {
+                        lines.push(chunk); chunk = ch;
+                    } else { chunk += ch; }
+                }
+                return chunk;
+            };
+            words.forEach(w => {
+                const test = cur ? cur + ' ' + w : w;
+                if (ctx.measureText(test).width > maxWidth) {
+                    if (cur) { lines.push(cur); cur = ''; }
+                    if (ctx.measureText(w).width > maxWidth) { cur = breakLong(w); }
+                    else { cur = w; }
+                } else { cur = test; }
+            });
+            if (cur) lines.push(cur);
+            return lines.length ? lines : [''];
+        };
+
+        // คืนค่า data URL (image/jpeg) ของ Cover ที่สร้างเสร็จ
+        const buildCoverImage = async (title, name = TEACHER_NAME) => {
+            await ensureKanit();
+            const bg = await loadCoverBg();
+            const W = bg.naturalWidth || 1000;
+            const H = bg.naturalHeight || 720;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = W; canvas.height = H;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(bg, 0, 0, W, H);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const titleSize = Math.round(W * 0.052);
+            const nameSize  = Math.round(W * 0.034);
+            const maxWidth  = W * 0.84;
+
+            // ----- ชื่อระบบ (ขาว ตัวหนา มีเงา) -----
+            ctx.font = `700 ${titleSize}px Kanit, "Segoe UI", sans-serif`;
+            const lines = wrapCanvasText(ctx, title, maxWidth);
+            const lineHeight = titleSize * 1.22;
+            const blockH = lines.length * lineHeight;
+            const centerY = H * 0.40;
+            const startY = centerY - (blockH / 2) + (lineHeight / 2);
+
+            ctx.shadowColor = 'rgba(0,0,0,0.55)';
+            ctx.shadowBlur = W * 0.012;
+            ctx.shadowOffsetY = 2;
+            ctx.fillStyle = '#FFFFFF';
+            lines.forEach((ln, i) => ctx.fillText(ln, W / 2, startY + i * lineHeight));
+
+            // ----- ชื่อครู (สีครีมทอง) -----
+            ctx.font = `500 ${nameSize}px Kanit, "Segoe UI", sans-serif`;
+            ctx.fillStyle = '#F3E5C0';
+            const nameY = startY + (lines.length - 1) * lineHeight + lineHeight * 0.95 + nameSize * 0.4;
+            ctx.fillText(name, W / 2, nameY);
+
+            ctx.shadowColor = 'transparent';
+            return canvas.toDataURL('image/jpeg', 0.92);
+        };
+
+        // ⭐⭐ Export ข้อมูลเป็นไฟล์ .xlsx แบบจัดรูปแบบ + แยกชีทตามแท็บ ⭐⭐
+        const fmtThaiDate = (ts) => {
+            if (!ts) return '-';
+            try {
+                return new Date(ts).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+            } catch (e) { return '-'; }
+        };
+
+        const _xlBorder = {
+            top:    { style: 'thin', color: { rgb: 'BFBFBF' } },
+            bottom: { style: 'thin', color: { rgb: 'BFBFBF' } },
+            left:   { style: 'thin', color: { rgb: 'BFBFBF' } },
+            right:  { style: 'thin', color: { rgb: 'BFBFBF' } }
+        };
+        const XL_STYLE = {
+            title:      { font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' }, name: 'Tahoma' }, fill: { fgColor: { rgb: '003366' } }, alignment: { horizontal: 'center', vertical: 'center' } },
+            header:     { font: { bold: true, sz: 12, color: { rgb: 'FFFFFF' }, name: 'Tahoma' }, fill: { fgColor: { rgb: '0066CC' } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: _xlBorder },
+            cell:       { font: { sz: 11, name: 'Tahoma' }, alignment: { vertical: 'center', wrapText: true }, border: _xlBorder },
+            cellCenter: { font: { sz: 11, name: 'Tahoma' }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: _xlBorder }
+        };
+
+        const buildStyledSheet = (titleText, headers, rows, colWidths) => {
+            const aoa = [[titleText], headers, ...rows];
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            const ncol = headers.length;
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: ncol - 1 } }];
+            ws['!cols'] = colWidths.map(w => ({ wch: w }));
+            ws['!rows'] = [{ hpt: 30 }, { hpt: 24 }];
+
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let R = range.s.r; R <= range.e.r; R++) {
+                for (let C = range.s.c; C <= range.e.c; C++) {
+                    const addr = XLSX.utils.encode_cell({ r: R, c: C });
+                    if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+                    if (R === 0)      ws[addr].s = XL_STYLE.title;
+                    else if (R === 1) ws[addr].s = XL_STYLE.header;
+                    else              ws[addr].s = (C === 0) ? XL_STYLE.cellCenter : XL_STYLE.cell;
+                }
+            }
+            return ws;
+        };
+
+        const exportToExcel = async (projects, infographics, videos) => {
+            const wb = XLSX.utils.book_new();
+
+            // ชีท: ผลงาน
+            const pRows = projects.map((p, i) => [i + 1, p.title || '', p.category || '', p.description || '', p.link || '', fmtThaiDate(p.timestamp)]);
+            const pWs = buildStyledSheet('สรุปผลงาน — ครูนนทพัทธ์ หิรัญเรือง',
+                ['ลำดับ', 'ชื่อผลงาน', 'หมวดหมู่', 'คำอธิบาย', 'ลิงก์', 'วันที่บันทึก'],
+                pRows, [8, 32, 16, 45, 40, 18]);
+            XLSX.utils.book_append_sheet(wb, pWs, 'ผลงาน');
+
+            // ชีท: Infographic
+            const iRows = infographics.map((it, i) => [i + 1, it.title || '', it.imageUrl || '', fmtThaiDate(it.timestamp)]);
+            const iWs = buildStyledSheet('คลัง Infographic — ครูนนทพัทธ์ หิรัญเรือง',
+                ['ลำดับ', 'ชื่อ Infographic', 'ลิงก์รูปภาพ', 'วันที่บันทึก'],
+                iRows, [8, 42, 55, 18]);
+            XLSX.utils.book_append_sheet(wb, iWs, 'Infographic');
+
+            // ชีท: วีดิทัศน์
+            const vRows = videos.map((v, i) => [i + 1, v.title || '', v.category || '', v.description || '', v.link || '', fmtThaiDate(v.timestamp)]);
+            const vWs = buildStyledSheet('สื่อวีดิทัศน์ — ครูนนทพัทธ์ หิรัญเรือง',
+                ['ลำดับ', 'ชื่อวิดีโอ', 'หมวดหมู่', 'คำอธิบาย', 'ลิงก์', 'วันที่บันทึก'],
+                vRows, [8, 32, 18, 45, 40, 18]);
+            XLSX.utils.book_append_sheet(wb, vWs, 'วีดิทัศน์');
+
+            const t = new Date();
+            const fname = `ผลงานครูนนทพัทธ์_${t.getDate()}-${t.getMonth() + 1}-${t.getFullYear() + 543}.xlsx`;
+            XLSX.writeFile(wb, fname);
+        };
+
         function CountUpNumber({ end, duration = 2000 }) {
             const [count, setCount] = useState(0);
 
@@ -652,7 +858,7 @@
             );
         }
 
-        function Header({ onAddClick, activeTab, onTabChange }) {
+        function Header({ onAddClick, onExport, activeTab, onTabChange }) {
             return (
                 <header className="glass sticky top-0 z-40 px-4 py-4 shadow-lg safe-top">
                     <div className="max-w-4xl mx-auto">
@@ -679,6 +885,13 @@
                                     title="เพิ่มข้อมูล"
                                 >
                                     <i className="fa-solid fa-plus text-base"></i>
+                                </button>
+                                <button 
+                                    onClick={onExport}
+                                    className="bg-gradient-to-r from-green-600 to-emerald-600 ripple text-white w-12 h-12 rounded-2xl shadow-lg flex items-center justify-center active:scale-95 hover:shadow-xl transition-all"
+                                    title="Export Excel (.xlsx)"
+                                >
+                                    <i className="fa-solid fa-file-excel text-base"></i>
                                 </button>
                                 <a 
                                     href="print.html"
@@ -772,6 +985,25 @@
         }
 
         function ProjectCard({ project, onOpen, onCopy, onQR, onEdit, onDelete }) {
+            const validImage = isValidImageUrl(project.imageUrl);
+            const fallbackUrls = validImage ? getImageUrlsForFallback(project.imageUrl) : [];
+            const [imgSrc, setImgSrc] = useState('');
+            const [urlIndex, setUrlIndex] = useState(0);
+
+            useEffect(() => {
+                if (validImage) { setImgSrc(fallbackUrls[0]); setUrlIndex(0); }
+            }, [project.imageUrl]);
+
+            const handleImgError = () => {
+                const next = urlIndex + 1;
+                if (next < fallbackUrls.length) {
+                    setImgSrc(fallbackUrls[next]);
+                    setUrlIndex(next);
+                } else {
+                    setImgSrc('https://via.placeholder.com/400x300?text=No+Image');
+                }
+            };
+
             return (
                 <div className="bg-white rounded-3xl shadow-card overflow-hidden flex flex-col h-full card-hover relative group">
                     <div className="absolute top-3 right-3 z-10 flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all duration-300">
@@ -790,13 +1022,22 @@
                     </div>
 
                     <div className="relative h-48 overflow-hidden cursor-pointer bg-gradient-to-br from-gray-100 to-gray-200" onClick={() => onOpen(project)}>
-                        <img 
-                            src={project.imageUrl} 
-                            alt={project.title} 
-                            className="w-full h-full object-cover image-zoom" 
-                            loading="lazy" 
-                            onError={(e) => e.target.src = 'https://via.placeholder.com/400x300?text=No+Image'} 
-                        />
+                        {validImage ? (
+                            <img 
+                                src={imgSrc} 
+                                alt={project.title} 
+                                className="w-full h-full object-cover image-zoom" 
+                                loading="lazy" 
+                                onError={handleImgError} 
+                            />
+                        ) : (
+                            // ⭐ รูปไม่ถูกบันทึก (ERROR_UPLOAD) → โชว์ป้ายเตือนแทนรูปเสีย
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100 text-center px-4">
+                                <i className="fa-solid fa-triangle-exclamation text-3xl text-amber-500 mb-2"></i>
+                                <p className="text-amber-700 text-sm font-semibold">รูปภาพไม่ถูกบันทึก</p>
+                                <p className="text-amber-600 text-xs mt-1">กรุณาแก้ไขแล้วอัปโหลดรูปใหม่อีกครั้ง</p>
+                            </div>
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         <span className="absolute top-3 left-3 bg-white/90 backdrop-blur text-gray-800 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-md">
                             {project.category}
@@ -1514,9 +1755,10 @@
                     };
 
                     if (file && file.size > 0) {
-                        const base64Image = await toBase64(file);
-                        payload.imageBase64 = base64Image.split(',')[1];
-                        payload.imageType = file.type;
+                        // ⭐ Infographic มักมีตัวหนังสือ ใช้ขนาด/คุณภาพสูงขึ้นเพื่อคงความคมชัด
+                        const compressed = await compressImage(file, 2000, 0.9);
+                        payload.imageBase64 = compressed.base64;
+                        payload.imageType = compressed.type;
                     } else if (!isEditMode) {
                         closeLoading();
                         showError("กรุณาเลือกไฟล์รูปภาพ");
@@ -1626,12 +1868,32 @@
             const formRef = useRef(null);
             const isEditMode = !!initialData;
 
-            const toBase64 = file => new Promise((resolve, reject) => {
-                const reader = new FileReader(); 
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result); 
-                reader.onerror = error => reject(error);
-            });
+            // ⭐ โหมดสร้าง Cover อัตโนมัติ
+            const [coverMode, setCoverMode] = useState(false);
+            const [coverTitle, setCoverTitle] = useState(initialData ? initialData.title : '');
+            const [coverPreview, setCoverPreview] = useState('');
+            const [buildingCover, setBuildingCover] = useState(false);
+            const coverModeRef = useRef(false);
+            useEffect(() => { coverModeRef.current = coverMode; }, [coverMode]);
+
+            // รีเซ็ตค่าเมื่อเปิดฟอร์มใหม่ / เปลี่ยนรายการแก้ไข
+            useEffect(() => {
+                setCoverMode(false);
+                setCoverPreview('');
+                setCoverTitle(initialData ? initialData.title : '');
+            }, [initialData, isOpen]);
+
+            // สร้างพรีวิว Cover แบบสดเมื่ออยู่ในโหมด Cover
+            useEffect(() => {
+                let cancelled = false;
+                if (coverMode) {
+                    setBuildingCover(true);
+                    buildCoverImage(coverTitle || ' ')
+                        .then(url => { if (!cancelled) { setCoverPreview(url); setBuildingCover(false); } })
+                        .catch(() => { if (!cancelled) { setBuildingCover(false); } });
+                }
+                return () => { cancelled = true; };
+            }, [coverMode, coverTitle]);
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
@@ -1652,10 +1914,16 @@
                         oldImageUrl: isEditMode ? initialData.imageUrl : ""
                     };
 
-                    if (file && file.size > 0) {
-                        const base64Image = await toBase64(file);
-                        payload.imageBase64 = base64Image.split(',')[1];
-                        payload.imageType = file.type;
+                    if (coverModeRef.current) {
+                        // ⭐ สร้าง Cover จากพื้นหลังเปล่า + ชื่อระบบ + ชื่อครู
+                        const coverUrl = await buildCoverImage(formData.get('title') || '');
+                        payload.imageBase64 = coverUrl.split(',')[1];
+                        payload.imageType = 'image/jpeg';
+                    } else if (file && file.size > 0) {
+                        // ⭐ บีบอัดก่อนส่ง ลดโอกาส payload ใหญ่จน GAS timeout
+                        const compressed = await compressImage(file);
+                        payload.imageBase64 = compressed.base64;
+                        payload.imageType = compressed.type;
                     }
 
                     // ใช้ text/plain เพื่อให้ส่งข้อมูลผ่าน no-cors ได้ถูกต้อง
@@ -1709,6 +1977,7 @@
                                     name="title" 
                                     defaultValue={isEditMode ? initialData.title : ''} 
                                     required 
+                                    onChange={(e) => setCoverTitle(e.target.value)}
                                     className="w-full p-4 border-2 border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-accent focus:border-accent outline-none transition-all" 
                                     placeholder="เช่น ระบบจัดการห้องสมุด"
                                 />
@@ -1760,20 +2029,62 @@
                                 />
                             </div>
                             
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                     <i className="fa-solid fa-image text-accent"></i>
                                     รูปภาพปก 
                                     {isEditMode && <span className="text-xs text-gray-400 font-normal">(ไม่ต้องเลือกถ้าไม่เปลี่ยน)</span>}
                                 </label>
-                                <div className="relative">
-                                    <input 
-                                        type="file" 
-                                        name="imageFile" 
-                                        accept="image/*" 
-                                        className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:border-accent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-accent file:text-white hover:file:bg-blue-700 cursor-pointer" 
-                                    />
+
+                                {/* ⭐ สลับโหมด: อัปโหลดเอง / สร้าง Cover อัตโนมัติ */}
+                                <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-xl">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCoverMode(false)}
+                                        className={`py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${!coverMode ? 'bg-white text-accent shadow' : 'text-gray-500'}`}
+                                    >
+                                        <i className="fa-solid fa-upload"></i> อัปโหลดเอง
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCoverMode(true)}
+                                        className={`py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${coverMode ? 'bg-white text-accent shadow' : 'text-gray-500'}`}
+                                    >
+                                        <i className="fa-solid fa-wand-magic-sparkles"></i> สร้าง Cover อัตโนมัติ
+                                    </button>
                                 </div>
+
+                                {!coverMode ? (
+                                    <div className="relative">
+                                        <input 
+                                            type="file" 
+                                            name="imageFile" 
+                                            accept="image/*" 
+                                            className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:border-accent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-accent file:text-white hover:file:bg-blue-700 cursor-pointer" 
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <div className="rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50 min-h-[140px] flex items-center justify-center">
+                                            {buildingCover ? (
+                                                <div className="py-10 text-center text-gray-400">
+                                                    <i className="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+                                                    <p className="text-xs">กำลังสร้างพรีวิว...</p>
+                                                </div>
+                                            ) : coverPreview ? (
+                                                <img src={coverPreview} alt="Cover preview" className="w-full h-auto" />
+                                            ) : (
+                                                <div className="py-10 text-center text-gray-400 text-xs px-4">
+                                                    พิมพ์ชื่อผลงานด้านบน ระบบจะสร้างภาพปกจากพื้นหลังให้อัตโนมัติ
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                                            <i className="fa-solid fa-circle-info text-accent"></i>
+                                            ใช้พื้นหลังสำเร็จรูป + ชื่อผลงาน + “{TEACHER_NAME}”
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                             
                             <button 
@@ -2082,6 +2393,36 @@
                 }
             };
 
+            // ⭐ Export ทั้งหมดเป็น .xlsx (ดึงข้อมูลสดทั้ง 3 แท็บ แล้วแยกชีท)
+            const handleExportExcel = async () => {
+                if (typeof XLSX === 'undefined') {
+                    showError('ไลบรารี Excel ยังโหลดไม่เสร็จ กรุณาลองใหม่อีกครั้ง');
+                    return;
+                }
+                showLoading('กำลังสร้างไฟล์ Excel...');
+                try {
+                    const [pRes, iRes, vRes] = await Promise.all([
+                        fetch(GAS_API_URL),
+                        fetch(`${GAS_API_URL}?action=getInfographics&folderId=${INFOGRAPHIC_FOLDER_ID}`),
+                        fetch(`${GAS_API_URL}?action=getVideos`)
+                    ]);
+                    const pData = await pRes.json();
+                    const iData = await iRes.json();
+                    const vData = await vRes.json();
+
+                    await exportToExcel(
+                        Array.isArray(pData) ? [...pData].reverse() : [],
+                        Array.isArray(iData) ? iData : [],
+                        Array.isArray(vData) ? vData : []
+                    );
+                    closeLoading();
+                    showSuccess('ดาวน์โหลด Excel สำเร็จ!');
+                } catch (e) {
+                    closeLoading();
+                    showError('สร้างไฟล์ไม่สำเร็จ: ' + e.message);
+                }
+            };
+
             // ⭐ ฟังก์ชันดาวน์โหลด - ปรับปรุงสำหรับ iOS
             const handleDownloadInfographic = async (infographic) => {
                 const fileId = extractFileId(infographic.imageUrl);
@@ -2135,6 +2476,7 @@
                 <div className="min-h-screen pb-10 safe-bottom">
                     <Header 
                         onAddClick={handleAddStart} 
+                        onExport={handleExportExcel}
                         activeTab={activeTab}
                         onTabChange={(tab) => {
                             setActiveTab(tab);
@@ -2326,12 +2668,20 @@
                             
                             <div className="max-w-3xl mx-auto">
                                 <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-                                    <img 
-                                        src={viewProject.imageUrl} 
-                                        className="w-full h-auto max-h-[60vh] object-contain" 
-                                        onError={(e) => e.target.src = 'https://via.placeholder.com/400x300?text=No+Image'} 
-                                        alt={viewProject.title}
-                                    />
+                                    {isValidImageUrl(viewProject.imageUrl) ? (
+                                        <img 
+                                            src={getImageUrlsForFallback(viewProject.imageUrl)[0]} 
+                                            className="w-full h-auto max-h-[60vh] object-contain" 
+                                            onError={(e) => e.target.src = 'https://via.placeholder.com/400x300?text=No+Image'} 
+                                            alt={viewProject.title}
+                                        />
+                                    ) : (
+                                        <div className="w-full py-20 flex flex-col items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100 text-center px-6">
+                                            <i className="fa-solid fa-triangle-exclamation text-4xl text-amber-500 mb-3"></i>
+                                            <p className="text-amber-700 font-semibold">รูปภาพไม่ถูกบันทึก (ERROR_UPLOAD)</p>
+                                            <p className="text-amber-600 text-sm mt-1">กดปุ่มแก้ไขที่การ์ด แล้วอัปโหลดรูปใหม่อีกครั้ง</p>
+                                        </div>
+                                    )}
                                 </div>
                                 
                                 <div className="p-6 md:p-8">
